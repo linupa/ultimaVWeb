@@ -9,6 +9,7 @@ import { view } from './view.js';
 import { BrowserPlatform } from './platform/browser.js';
 import { platform, setPlatform } from './platform/platform.js';
 import { files } from './files.js';
+import { input } from './input.js';
 import { clearWritten, loadFiles, loadWritten, saveFiles, saveWritten } from './store.js';
 
 const screen = document.getElementById('screen');
@@ -21,7 +22,9 @@ const gameFiles = new GameFiles();
 
 // The mouse, before the game (intro.mouseMode): in the title sequence, the demo, the introduction
 // and the acknowledgements a click is a key press - sent as Escape, which skips or turns the page
-// and which the menu ignores. In the menu a click on an item chooses it, as its letter does.
+// and which the menu ignores. In the menu a click on an item chooses it, as its letter does. When
+// the game offers a choice (intro.mouseTargets: Male or Female, the gypsy's A or B) the choice
+// under the pointer is highlighted and a click on it is its key.
 const MENU_KEYS = 'JCTUAR'; // the items, top to bottom: text rows 17-22
 const MENU_TOP = 17 * 8;
 
@@ -38,9 +41,32 @@ function menuItemAt({ x, y }) {
   return item < MENU_KEYS.length ? item : -1;
 }
 
+/** The choice at a screen point, or null. */
+function targetAt({ x, y }) {
+  if (intro.mouseMode !== 'targets') return null;
+  return intro.mouseTargets.find((t) => t.rects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) ?? null;
+}
+
+let pointer = null; // the last screen point the pointer was at, null once it left the screen
+// A touch screen has no hover: then all the choices are outlined, and the one touched lights up.
+let touch = matchMedia('(hover: none)').matches; // the last pointer used was a finger or a pen
+let pressed = null; // the choice being touched, lit until a moment after the finger lifts
+
 screen.addEventListener('pointerdown', (e) => {
+  touch = e.pointerType !== 'mouse';
   if (e.button !== 0 || !intro.mouseMode) return;
-  if (intro.mouseMode === 'skip') {
+  if (intro.mouseMode === 'targets') {
+    const target = targetAt(screenPoint(e));
+    if (!target) return;
+    e.preventDefault();
+    pressed = target;
+    setTimeout(() => {
+      if (pressed === target) pressed = null;
+      platform.present();
+    }, 300);
+    platform.present();
+    platform.pushKey({ key: target.key, shifted: 0 });
+  } else if (intro.mouseMode === 'skip') {
     e.preventDefault();
     platform.pushKey({ key: 0x1b, shifted: 0 });
   } else if (intro.mouseMode === 'menu') {
@@ -53,12 +79,77 @@ screen.addEventListener('pointerdown', (e) => {
 
 // A hand over what a click would do.
 screen.addEventListener('pointermove', (e) => {
-  const clickable = intro.mouseMode === 'skip' || (intro.mouseMode === 'menu' && menuItemAt(screenPoint(e)) >= 0);
+  touch = e.pointerType !== 'mouse';
+  pointer = screenPoint(e);
+  const clickable = intro.mouseMode === 'skip' || (intro.mouseMode === 'menu' && menuItemAt(pointer) >= 0) || targetAt(pointer) !== null;
   screen.style.cursor = clickable ? 'pointer' : '';
+  platform?.present(); // the highlight follows at once
+});
+screen.addEventListener('pointerleave', () => {
+  pointer = null;
+  platform?.present();
+});
+
+/**
+ * What the page draws over each frame: with a mouse, the choice under the pointer lit; on a touch
+ * screen every choice outlined and the one touched lit.
+ */
+function highlight() {
+  if (intro.mouseMode !== 'targets') return [];
+  if (touch) return intro.mouseTargets.flatMap((t) => t.rects.map((r) => ({ ...r, lit: t === pressed })));
+  const target = pointer && targetAt(pointer);
+  return target ? target.rects.map((r) => ({ ...r, lit: true })) : [];
+}
+
+// A touch screen's keyboard. It opens only for a text field, and (on most phones) only on a tap:
+// while the game waits for typed text (input.typing) a tap on the screen focuses the hidden field
+// #type-here, and many Android phones open it at once. What changes in the field is sent to the
+// game as keys - the letters added, Backspace for each one removed - since touch keyboards often
+// build up a word before it is final; Return comes as a key. The field starts with two spaces, so
+// Backspace has something to remove even when nothing has been typed.
+const typeHere = document.getElementById('type-here');
+const typeHint = document.getElementById('type-hint');
+const BLANK = '  ';
+let typed = BLANK; // the field's text the game has been given
+
+function resetTypeHere() {
+  typeHere.value = typed = BLANK;
+  typeHere.setSelectionRange(BLANK.length, BLANK.length);
+}
+
+function openKeyboard() {
+  if (!input.typing) return;
+  typeHere.inputMode = input.typing === 'number' ? 'numeric' : 'text';
+  resetTypeHere();
+  typeHere.focus({ preventScroll: true });
+}
+
+input.onTyping = (kind) => {
+  if (kind && touch) openKeyboard();
+  else if (!kind) typeHere.blur();
+  typeHint.hidden = !(kind && touch && document.activeElement !== typeHere);
+};
+typeHere.addEventListener('focus', () => { typeHint.hidden = true; });
+typeHere.addEventListener('blur', () => { typeHint.hidden = !(input.typing && touch); });
+screen.addEventListener('click', () => { // a tap: the user action a keyboard may open on
+  if (input.typing) openKeyboard();
+});
+
+typeHere.addEventListener('input', (e) => {
+  const now = typeHere.value;
+  let same = 0;
+  while (same < now.length && same < typed.length && now[same] === typed[same]) same++;
+  for (let n = typed.length - same; n > 0; n--) platform.pushKey({ key: 8, shifted: 0 });
+  for (const ch of now.slice(same)) {
+    const c = ch.charCodeAt(0);
+    if (c >= 0x20 && c < 0x7f) platform.pushKey({ key: c, shifted: 0 });
+  }
+  typed = now;
+  if (!e.isComposing) resetTypeHere(); // (not while the keyboard is still building a word)
 });
 
 async function start() {
-  setPlatform(new BrowserPlatform(screen));
+  setPlatform(new BrowserPlatform(screen, window, highlight));
   try {
     await loadFiles(gameFiles);
   } catch {

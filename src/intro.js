@@ -16,7 +16,7 @@ import { randomBetween, setRandomSeed, timeSeed } from './misc.js';
 import { party } from './party.js';
 import {
   allocBackPage, copyBackRect, copyPage, copyPageRect, dosFreeMem, dosFreeMem2, drawFontGlyph, drawPictureFrame,
-  loadBitmap, loadPicture, revealStrips, showTitlePicture, waitRevealStrips,
+  loadBitmap, loadPicture, pictureFrameSize, revealStrips, showTitlePicture, waitRevealStrips,
 } from './picture.js';
 import { platform } from './platform/platform.js';
 import { sound } from './sound.js';
@@ -50,6 +50,22 @@ export function readPages(count, b, words, bytes, last) {
 }
 
 const PATH_SIZE = 0x1060;
+
+/** The screen rectangles, one per line, of the story text from character `from` up to `to`. */
+function textRects(glyphs, from, to) {
+  const lines = new Map();
+  for (const g of glyphs) {
+    if (g.i < from || g.i >= to) continue;
+    const r = lines.get(g.y);
+    if (!r) lines.set(g.y, { x: g.x, y: g.y, w: g.w, h: 9 });
+    else {
+      const right = Math.max(r.x + r.w, g.x + g.w);
+      r.x = Math.min(r.x, g.x);
+      r.w = right - r.x;
+    }
+  }
+  return [...lines.values()];
+}
 
 /** A name into a member's 9 bytes as the original writes it: the characters and a NUL, the rest left as it was. */
 function writeName(m, name) {
@@ -100,8 +116,14 @@ export class Intro {
     this.u4IsAvatar = 0;
     // What a click on the screen does (main.js): null nothing; 'skip' it is a key - it skips the
     // title sequence or the demo, turns the introduction's page (sent as Escape, which the menu
-    // ignores if it is still waiting there); 'menu' it picks the menu item under it.
+    // ignores if it is still waiting there); 'menu' it picks the menu item under it; 'targets' it
+    // picks one of mouseTargets.
     this.mouseMode = null;
+    // In mode 'targets', the choices a click can make: [{ key, rects: [{ x, y, w, h }] }] in
+    // screen pixels. The page highlights the one under the pointer and sends its key on a click.
+    this.mouseTargets = [];
+    // Set to an array, drawStoryText records each character it draws: { i, x, y, w }.
+    this.storyGlyphs = null;
 
     // Read-only tables, from DATA.OVL.
     // 21 pages; the 22nd is read past each field's end, and its `kind` ends the story.
@@ -1019,7 +1041,10 @@ export class Intro {
           } else if (c === 0x7b) {
             this.storyX = (this.storyX + 0x0f) & 0xffff;
           } else if (c !== 0x5f) {
-            if (s16(this.storyY) < 0xc0) drawFontGlyph(s16(this.storyY), s16(this.storyX), c - 0x20, font);
+            if (s16(this.storyY) < 0xc0) {
+              drawFontGlyph(s16(this.storyY), s16(this.storyX), c - 0x20, font);
+              if (this.storyGlyphs) this.storyGlyphs.push({ i: pos, x: s16(this.storyX), y: s16(this.storyY), w: this.glyphW(c) });
+            }
             this.storyX = (this.storyX + this.glyphW(c)) & 0xffff;
           }
         } while (++pos !== i);
@@ -1256,13 +1281,27 @@ export class Intro {
     drawPictureFrame(0, this.virtueCardY[left & 7], this.virtueCardX[left & 7], left + 2, picture);
     drawPictureFrame(0, this.virtueCardY[right & 7], this.virtueCardX[right & 7] + 0xb8, right + 2, picture);
     loadFilePart(this.questionOffsets[(a & 7) * 8 + (b & 7)], 2000, textBuffer.data, strings.get(S.QUESTION_DAT_A052));
+    this.storyGlyphs = [];
     this.drawStoryText(textBuffer.data, font);
     copyPage(0, 1);
+    // For the mouse: answer A is the "A) ..." passage and the left card, B the rest and the right.
+    const question = textBuffer.cString(0), atA = question.indexOf('A)'), atB = question.indexOf('B)');
+    const card = (v, dx) => {
+      const size = pictureFrameSize(picture, v + 2);
+      return size ? [{ x: (this.virtueCardX[v & 7] + dx) & ~7, y: this.virtueCardY[v & 7], w: size.w, h: size.h }] : [];
+    };
+    this.mouseTargets = [
+      { key: 0x41, rects: [...(atA >= 0 && atB > atA ? textRects(this.storyGlyphs, atA, atB) : []), ...card(left, 0)] },
+      { key: 0x42, rects: [...(atB >= 0 ? textRects(this.storyGlyphs, atB, question.length) : []), ...card(right, 0xb8)] },
+    ];
+    this.storyGlyphs = null;
+    this.mouseMode = 'targets';
     let c;
     do {
       c = toUpper((await this.waitAnyKey()) & 0xff);
       if (platform.quitRequested()) c = 0x41;
     } while (c !== 0x41 && c !== 0x42);
+    this.mouseMode = null;
     const winner = c === aKey ? a : b, loser = c === aKey ? b : a;
     this.newInt = (this.newInt + this.virtueInt[winner & 7]) & 0xff;
     this.newDex = (this.newDex + this.virtueDex[winner & 7]) & 0xff;
@@ -1292,12 +1331,21 @@ export class Intro {
     writeName(party.member(0), await input.readName(8));
     if (party.member(0).name !== '') {
       tw.setCursor(0x15, 8);
-      tw.printText(strings.get(S.Art_thou_Male_or_Female_A08C));
+      const prompt = strings.get(S.Art_thou_Male_or_Female_A08C);
+      tw.printText(prompt);
+      // For the mouse: the words "Male" and "Female" in the prompt.
+      const word = (w, key) => {
+        const at = prompt.indexOf(w);
+        return { key, rects: at < 0 ? [] : [{ x: (tw.window.left + 8 + at) * 8, y: (tw.window.top + 0x15) * 8, w: w.length * 8, h: 8 }] };
+      };
+      this.mouseTargets = [word('Male', 0x4d), word('Female', 0x46)];
+      this.mouseMode = 'targets';
       let k;
       do {
         k = toUpper((await input.waitKeyTimeout(0)) & 0xff);
         if (platform.quitRequested()) k = 0x4d;
       } while (k !== 0x4d && k !== 0x46);
+      this.mouseMode = null;
       tw.putChar(k);
       party.member(0).sex = k === 0x4d ? 0x0b : 0x0c;
       this.storyX = 0;
@@ -1313,7 +1361,9 @@ export class Intro {
       this.drawStoryText(text, font);
       copyPage(0, 1);
       this.storyLineMin = 200;
+      this.mouseMode = 'skip'; // a click goes on, as a key does
       await this.waitAnyKey();
+      this.mouseMode = null;
       this.newInt = party.member(0).intel;
       this.newDex = party.member(0).dex;
       this.newStr = party.member(0).str;
@@ -1337,7 +1387,9 @@ export class Intro {
       this.drawStoryText(text, font);
       this.storySpaceWidth = 5;
       copyPage(0, 1);
+      this.mouseMode = 'skip';
       await this.waitAnyKey();
+      this.mouseMode = null;
       dosFreeMem(picture);
       dosFreeMem2(font);
       video.setDrawPage(1);

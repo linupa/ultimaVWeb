@@ -9,6 +9,9 @@
   <body>
     <main>
       <canvas id="screen" width="320" height="200"></canvas>
+      <!-- Where a touch screen's keyboard types: the game reads what changes in it (main.js). -->
+      <input id="type-here" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Type here" />
+      <p id="type-hint" hidden>Tap the screen to type</p>
       <section id="saves" hidden>
         <button id="toggle-saves" type="button" aria-expanded="true" aria-controls="save-controls">Hide save options</button>
         <div id="save-controls">

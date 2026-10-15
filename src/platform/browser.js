@@ -12,12 +12,17 @@ const BROWSER_CTRL = new Set(['KeyR', 'KeyW', 'KeyT', 'KeyN', 'KeyL', 'KeyQ']);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class BrowserPlatform extends Platform {
-  /** @param {HTMLCanvasElement} canvas  @param {EventTarget} keySource (usually window) */
-  constructor(canvas, keySource = window) {
+  /**
+   * @param {HTMLCanvasElement} canvas  @param {EventTarget} keySource (usually window)
+   * @param {() => {x, y, w, h, lit}[]} highlight  screen rectangles to highlight over each frame
+   *   (the game's own picture is left as it is); lit ones more strongly
+   */
+  constructor(canvas, keySource = window, highlight = () => []) {
     super();
     this.ctx = canvas.getContext('2d');
     this.image = this.ctx.createImageData(SCREEN_W, SCREEN_H);
     this.queue = [];
+    this.highlight = highlight;
     this.lastPresent = 0;
     this.audio = null; // the AudioContext, made at the first key (browsers allow sound only after one)
     this.audioEnd = 0; // when the sound queued so far ends, in the context's time
@@ -38,6 +43,9 @@ export class BrowserPlatform extends Platform {
   keyDown(e) {
     this.startAudio();
     if (e.ctrlKey && BROWSER_CTRL.has(e.code)) return;
+    // In the text field a touch keyboard types into (main.js), letters and Backspace arrive as
+    // changes to the field; only Return, Escape and the like come from here.
+    if (e.target?.tagName === 'INPUT' && (e.key.length === 1 || e.key === 'Backspace')) return;
     const k = keyFromEvent(e);
     if (!k) return;
     e.preventDefault(); // keep arrows, Backspace, Tab, Ctrl+S... for the game
@@ -111,6 +119,17 @@ export class BrowserPlatform extends Platform {
   present() {
     toRGBA(video.fb, this.image.data);
     this.ctx.putImageData(this.image, 0, 0);
+    // EGA yellow: a lit choice see-through with an outline, the others (on a touch screen,
+    // without hover) only a faint outline.
+    this.ctx.lineWidth = 1;
+    for (const r of this.highlight()) {
+      if (r.lit) {
+        this.ctx.fillStyle = 'rgba(255, 255, 85, 0.25)';
+        this.ctx.fillRect(r.x, r.y, r.w, r.h);
+      }
+      this.ctx.strokeStyle = r.lit ? 'rgb(255, 255, 85)' : 'rgba(255, 255, 85, 0.6)';
+      this.ctx.strokeRect(r.x - 0.5, r.y - 0.5, r.w + 1, r.h + 1);
+    }
     this.lastPresent = performance.now();
   }
 }

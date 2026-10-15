@@ -17,6 +17,10 @@ export class Input {
     this.typeaheadOn = 0; // ds:538C  the "Buffer On/Off" toggle (Ctrl key 0xFC); not modelled
     this.cursorFrame = 0; // ds:540C  wait_key_cursor's animation frame
     this.cursor = cursor;
+    // While the game waits for typed text: 'text' or 'number' (else null). The page shows a
+    // touch screen's keyboard then (onTyping).
+    this.typing = null;
+    this.onTyping = null;
   }
 
   drawCursor(frame) {
@@ -67,9 +71,16 @@ export class Input {
     return key;
   }
 
+  /** Says that the game starts (kind 'text' or 'number') or stops (null) waiting for typed text. */
+  setTyping(kind) {
+    this.typing = kind;
+    if (this.onTyping) this.onTyping(kind);
+  }
+
   /** A name typed at the cursor (up to maxLen): Backspace / left erase, Esc clears, Return ends. */
   async readName(maxLen) {
     let key, name = '';
+    this.setTyping('text');
     do {
       key = await this.waitKeyTimeout(0);
       if ((key === 8 || key === KEY_LEFT) && name.length !== 0) {
@@ -84,6 +95,7 @@ export class Input {
       }
       if (platform.quitRequested()) break;
     } while (key !== 0x0d);
+    this.setTyping(null);
     return name;
   }
 

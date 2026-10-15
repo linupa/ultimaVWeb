@@ -34,7 +34,14 @@ Your files stay in your browser. Nothing is uploaded anywhere.
 
 You need a keyboard; the game is played with keys, as on DOS. Before the game the mouse works
 too: a click skips the title sequence and the demo, turns the introduction's pages and closes the
-acknowledgements, and a click on a menu item chooses it.
+acknowledgements, and a click on a menu item chooses it. In character creation, Male or Female
+and the gypsy's answers can be clicked: the choice under the pointer is highlighted, the text of
+an answer together with its virtue's card. On a touch screen every choice is outlined and the one
+you tap lights up.
+
+On a phone or tablet, the screen keyboard opens when the game asks you to type (your name, a
+conversation, an amount); if it doesn't, tap the screen. The rest of the game still needs a
+keyboard, since its commands are keys.
 
 - **Arrow keys** move; the letters **A**-**Z** are the commands (Attack, Board, Cast, Enter, Fire,
   Get, Hole up, Ignite torch, Jimmy, Klimb, Look, Mix, New order, Open, Push, Quit & save, Ready,

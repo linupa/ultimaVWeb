@@ -143,6 +143,7 @@ export async function readLine(maxLen) {
   const saved = input.typeaheadOn;
   let key, s = '';
   input.typeaheadOn = 0;
+  input.setTyping('text');
   do {
     key = await getCommandKey();
     if ((key === 8 || key === 1) && s.length !== 0) {
@@ -157,6 +158,7 @@ export async function readLine(maxLen) {
     }
     if (platform.quitRequested()) break;
   } while (key !== 0x0d);
+  input.setTyping(null);
   input.typeaheadOn = saved;
   return s;
 }
@@ -176,6 +178,7 @@ export async function readNumber(maxDigits) {
   const digits = [0, 0, 0, 0, 0, 0];
   let n = 0;
   if (maxDigits > 5) maxDigits = 5;
+  input.setTyping('number');
   for (;;) {
     let key = await getCommandKey();
     if (platform.quitRequested()) key = 0x0d;
@@ -199,6 +202,7 @@ export async function readNumber(maxDigits) {
       for (let i = n - 1; i > 0; i--) value += (digits[i] - 0x30) * pow10[place++];
       if (digits[0] === 0x2d) value = -value;
       else if (digits[0] > 0x2f) value += pow10[place] * (digits[0] - 0x30);
+      input.setTyping(null);
       return (value << 16) >> 16;
     }
   }
