@@ -1,0 +1,24 @@
+node_modules/
+dist/
+test-output/
+build/
+
+# The original game's files: never commit or publish them (Ultima V is not freeware).
+gamedata/
+*.[Oo][Vv][Ll]
+*.[Gg][Aa][Mm]
+*.[Dd][Aa][Tt]
+*.[Oo][Oo][Ll]
+*.[Nn][Pp][Cc]
+*.[Tt][Ll][Kk]
+*.[Cc][Bb][Tt]
+*.[Dd][Rr][Vv]
+*.[Cc][Hh]
+*.[Hh][Cc][Ss]
+*.[Bb][Ii][Tt]
+*.[Pp][Cc][Ss]
+*.[Pp][Tt][Hh]
+*.[Ss][Aa][Vv]
+*.16
+*.4
+*.[Ee][Xx][Ee]
