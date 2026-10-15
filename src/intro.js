@@ -98,6 +98,10 @@ export class Intro {
     // The transfer from Ultima IV: the first record of PARTY.SAV.
     this.u4Character = new Uint8Array(40);
     this.u4IsAvatar = 0;
+    // What a click on the screen does (main.js): null nothing; 'skip' it is a key - it skips the
+    // title sequence or the demo, turns the introduction's page (sent as Escape, which the menu
+    // ignores if it is still waiting there); 'menu' it picks the menu item under it.
+    this.mouseMode = null;
 
     // Read-only tables, from DATA.OVL.
     // 21 pages; the 22nd is read past each field's end, and its `kind` ends the story.
@@ -878,11 +882,13 @@ export class Intro {
     tw.defineTextWindow(0x18, 0x27, 0, 0, 0);
     tw.selectTextWindow(0);
     let go = 0;
+    this.mouseMode = 'skip';
     if (!skipTitle) go = await this.titleSequence();
     else map.id = M.TITLE;
     if (platform.quitRequested()) return 0;
     await this.showTitleScreen(go);
     if (go) await this.attractDemo();
+    this.mouseMode = null;
     setRandomSeed(timeSeed());
     for (;;) {
       if (platform.quitRequested()) return 0;
@@ -895,6 +901,7 @@ export class Intro {
       let selected = 0, choice;
       this.printCentered(strings.get(S.Copyright_1988_Lord_31C1));
       this.drawMainMenu(0);
+      this.mouseMode = 'menu';
       do {
         tw.setCursor(0x0f, 0x0f);
         status.drawLabelLeft();
@@ -926,6 +933,7 @@ export class Intro {
             break;
         }
       } while (choice < 0x21);
+      this.mouseMode = choice === 0x41 || choice === 0x52 || choice === 0x55 ? 'skip' : null;
       switch (choice) {
         case 0x41: // A
           if (map.id !== M.TITLE) map.id = M.TITLE;
@@ -951,6 +959,7 @@ export class Intro {
           await this.showTitleScreen(0);
           break;
       }
+      this.mouseMode = null;
     }
   }
 

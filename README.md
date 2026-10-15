@@ -32,7 +32,9 @@ Your files stay in your browser. Nothing is uploaded anywhere.
    the menu. Choose **Create New Character** to start a new game, or **Journey Onward** to carry
    on with the saved game in your folder.
 
-You need a keyboard; the game is played entirely with keys, as on DOS.
+You need a keyboard; the game is played with keys, as on DOS. Before the game the mouse works
+too: a click skips the title sequence and the demo, turns the introduction's pages and closes the
+acknowledgements, and a click on a menu item chooses it.
 
 - **Arrow keys** move; the letters **A**-**Z** are the commands (Attack, Board, Cast, Enter, Fire,
   Get, Hole up, Ignite torch, Jimmy, Klimb, Look, Mix, New order, Open, Push, Quit & save, Ready,
@@ -56,6 +58,9 @@ You need a keyboard; the game is played entirely with keys, as on DOS.
 
 Clearing the site's data in your browser also deletes your saves, so download the ones you want
 to keep.
+
+**Hide save options** (above the buttons) tucks them away; the page remembers that in your
+browser.
 
 ### Transfer from Ultima IV
 

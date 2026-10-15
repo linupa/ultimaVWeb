@@ -44,6 +44,12 @@ export class BrowserPlatform extends Platform {
     if (this.queue.length < QUEUE_SIZE) this.queue.push(k);
   }
 
+  /** A key from something other than the keyboard (a click), as { key, shifted }. */
+  pushKey(k) {
+    this.startAudio();
+    if (this.queue.length < QUEUE_SIZE) this.queue.push(k);
+  }
+
   pollKey() {
     if (performance.now() - this.lastPresent >= 16) this.present();
     return this.queue.shift() ?? null;

@@ -19,6 +19,44 @@ const zip = document.getElementById('zip');
 
 const gameFiles = new GameFiles();
 
+// The mouse, before the game (intro.mouseMode): in the title sequence, the demo, the introduction
+// and the acknowledgements a click is a key press - sent as Escape, which skips or turns the page
+// and which the menu ignores. In the menu a click on an item chooses it, as its letter does.
+const MENU_KEYS = 'JCTUAR'; // the items, top to bottom: text rows 17-22
+const MENU_TOP = 17 * 8;
+
+/** The screen pixel under the pointer (the canvas is scaled to the page). */
+function screenPoint(e) {
+  const r = screen.getBoundingClientRect();
+  return { x: ((e.clientX - r.left) * 320) / r.width, y: ((e.clientY - r.top) * 200) / r.height };
+}
+
+/** The menu item at a screen point, or -1: anywhere along its row inside the menu's frame. */
+function menuItemAt({ x, y }) {
+  if (x < 8 || x >= 312 || y < MENU_TOP) return -1;
+  const item = Math.floor((y - MENU_TOP) / 8);
+  return item < MENU_KEYS.length ? item : -1;
+}
+
+screen.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || !intro.mouseMode) return;
+  if (intro.mouseMode === 'skip') {
+    e.preventDefault();
+    platform.pushKey({ key: 0x1b, shifted: 0 });
+  } else if (intro.mouseMode === 'menu') {
+    const item = menuItemAt(screenPoint(e));
+    if (item < 0) return;
+    e.preventDefault();
+    platform.pushKey({ key: MENU_KEYS.charCodeAt(item), shifted: 0 });
+  }
+});
+
+// A hand over what a click would do.
+screen.addEventListener('pointermove', (e) => {
+  const clickable = intro.mouseMode === 'skip' || (intro.mouseMode === 'menu' && menuItemAt(screenPoint(e)) >= 0);
+  screen.style.cursor = clickable ? 'pointer' : '';
+});
+
 async function start() {
   setPlatform(new BrowserPlatform(screen));
   try {
@@ -85,6 +123,30 @@ zip.addEventListener('change', async () => {
 // ---- saved games (step 7): what the game writes is kept in IndexedDB, and can be taken out or put in.
 
 const savesPanel = document.getElementById('saves');
+const saveControls = document.getElementById('save-controls');
+const toggleSaves = document.getElementById('toggle-saves');
+
+// The save options can be hidden; the choice is remembered in this browser (if it lets the page).
+function showSaveControls(show) {
+  saveControls.hidden = !show;
+  toggleSaves.textContent = show ? 'Hide save options' : 'Show save options';
+  toggleSaves.setAttribute('aria-expanded', String(show));
+}
+try {
+  showSaveControls(localStorage.getItem('saveControlsHidden') !== '1');
+} catch {
+  showSaveControls(true);
+}
+toggleSaves.addEventListener('click', () => {
+  const show = saveControls.hidden;
+  showSaveControls(show);
+  try {
+    localStorage.setItem('saveControlsHidden', show ? '0' : '1');
+  } catch {
+    // not remembered: private window or storage blocked
+  }
+  toggleSaves.blur(); // the keys go back to the game
+});
 
 async function restoreWritten() {
   try {
