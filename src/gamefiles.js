@@ -1,10 +1,12 @@
 // gamefiles.js - the original game's files, as the player provides them.
 //
-// The port ships none of Ultima V's data: the player chooses their copy's folder, and the files
+// The port ships none of Ultima V's data: the player chooses their copy's folder (or its ZIP), and the files
 // are kept in memory (and in IndexedDB by store.js, so it is asked only once). The C++ port's
 // files.cpp is the model: names are DOS names, matched without regard to case.
 
 /** DATA.OVL is 16 bytes of header and the 0xBD40-byte data segment image. */
+import { readZip } from './zip.js';
+
 export const DATA_OVL_SIZE = 16 + 0xbd40;
 
 /** Files the game cannot start without. */
@@ -19,6 +21,17 @@ export class GameFiles {
   /** Adds a file by name (any case). */
   add(name, bytes) {
     this.files.set(baseName(name).toUpperCase(), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+  }
+
+  /**
+   * Adds the game's files from a ZIP archive (the bytes). Only the folder that holds DATA.OVL is
+   * taken, so other things packed alongside (an emulator's settings, a second copy) don't mix in.
+   */
+  async addZip(bytes) {
+    const entries = await readZip(bytes);
+    const data = entries.find((e) => baseName(e.name).toUpperCase() === 'DATA.OVL');
+    const dir = data ? dirName(data.name).toUpperCase() : null;
+    for (const e of entries) if (dir === null || dirName(e.name).toUpperCase() === dir) this.add(e.name, e.bytes);
   }
 
   /** Adds the files a folder picker or a drop gave (File objects). */
@@ -46,4 +59,10 @@ export class GameFiles {
 
 function baseName(path) {
   return path.split(/[\\/]/).pop();
+}
+
+function dirName(path) {
+  const parts = path.split(/[\\/]/);
+  parts.pop();
+  return parts.join('/');
 }

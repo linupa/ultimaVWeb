@@ -21,11 +21,16 @@
       <section id="setup" hidden>
         <p>
           Ultima V needs the original game's files (DATA.OVL, the .16 pictures, the maps...).
-          They stay in your browser; nothing is uploaded.
+          Choose the folder they are in, or a ZIP file of the game. They stay in your browser;
+          nothing is uploaded.
         </p>
         <label class="button">
           Choose the Ultima V folder
           <input id="folder" type="file" webkitdirectory multiple hidden />
+        </label>
+        <label class="button">
+          Or a ZIP of it
+          <input id="zip" type="file" accept=".zip,application/zip" hidden />
         </label>
         <p id="status"></p>
       </section>

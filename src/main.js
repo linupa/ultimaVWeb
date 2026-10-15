@@ -15,6 +15,7 @@ const screen = document.getElementById('screen');
 const setup = document.getElementById('setup');
 const status = document.getElementById('status');
 const folder = document.getElementById('folder');
+const zip = document.getElementById('zip');
 
 const gameFiles = new GameFiles();
 
@@ -45,8 +46,8 @@ function askForFiles(message = '') {
   status.textContent = message;
 }
 
-folder.addEventListener('change', async () => {
-  await gameFiles.addFileList(folder.files);
+/** The files are in: check them, remember them, start. */
+async function useGameFiles() {
   const { ok, missing, problem } = gameFiles.check();
   if (!ok) {
     askForFiles(problem ?? `Missing: ${missing.join(', ')}`);
@@ -57,8 +58,28 @@ folder.addEventListener('change', async () => {
   } catch {
     // keep going without remembering them
   }
+  status.textContent = '';
   setup.hidden = true;
   run();
+}
+
+folder.addEventListener('change', async () => {
+  await gameFiles.addFileList(folder.files);
+  await useGameFiles();
+});
+
+// The game as a ZIP archive, e.g. the one it was downloaded as: unpacked here, in the browser.
+zip.addEventListener('change', async () => {
+  const file = zip.files[0];
+  if (!file) return;
+  status.textContent = `Unpacking ${file.name}...`;
+  try {
+    await gameFiles.addZip(new Uint8Array(await file.arrayBuffer()));
+  } catch (e) {
+    askForFiles(`${file.name}: ${e.message ?? e}`);
+    return;
+  }
+  await useGameFiles();
 });
 
 // ---- saved games (step 7): what the game writes is kept in IndexedDB, and can be taken out or put in.

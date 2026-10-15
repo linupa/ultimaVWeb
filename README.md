@@ -18,14 +18,16 @@ machines (Apple II, Commodore 64, Atari ST, Amiga, ...) use different file forma
 
 You can recognise the right files by `ULTIMA.EXE`, `DATA.OVL` and the other `.OVL` files,
 `TILES.16`, `BRIT.DAT` and `INIT.GAM`. If your copy came on several floppy disks, put the contents
-of all of them in one folder. Upper or lower case file names are both fine.
+of all of them in one folder. Upper or lower case file names are both fine. A ZIP file of the
+game works too: the page takes the files from the folder in it that holds `DATA.OVL`.
 
 Your files stay in your browser. Nothing is uploaded anywhere.
 
 ## Playing
 
 1. Open the page and click **Choose the Ultima V folder**, then pick the folder with the game's
-   files. The browser remembers them, so this is needed only once.
+   files - or click **Or a ZIP of it** and pick a ZIP file of the game, which is unpacked in your
+   browser. The browser remembers the files, so this is needed only once.
 2. The game starts as the original does: the Origin logo, Lord British's signature, the title and
    the menu. Choose **Create New Character** to start a new game, or **Journey Onward** to carry
    on with the saved game in your folder.
@@ -98,7 +100,7 @@ time or a key is `async`.
 
 | Where | What |
 |---|---|
-| `src/main.js`, `src/store.js`, `src/gamefiles.js` | the page: choosing the game folder, saves in IndexedDB |
+| `src/main.js`, `src/store.js`, `src/gamefiles.js`, `src/zip.js` | the page: choosing the game folder or ZIP, saves in IndexedDB |
 | `src/platform/` | the browser: canvas, keyboard, timers, Web Audio |
 | `src/data/` | reading `DATA.OVL`, the strings, LZW-compressed pictures |
 | `src/video/`, `src/gfx.js`, `src/text.js`, `src/tiles.js`, `src/picture.js` | EGA graphics and text |
