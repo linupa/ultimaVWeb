@@ -20,19 +20,24 @@ const zip = document.getElementById('zip');
 
 const gameFiles = new GameFiles();
 
-// The mouse, before the game (intro.mouseMode): in the title sequence, the demo, the introduction
-// and the acknowledgements a click is a key press - sent as Escape, which skips or turns the page
-// and which the menu ignores. In the menu a click on an item chooses it, as its letter does. When
-// the game offers a choice (intro.mouseTargets: Male or Female, the gypsy's A or B) the choice
-// under the pointer is highlighted and a click on it is its key.
+// The mouse (or a finger), before the game (intro.mouseMode). As with buttons, a press only arms:
+// what counts is where it is released. In the title sequence, the demo, the introduction and the
+// acknowledgements a release anywhere on the screen is a key press - sent as Escape, which skips or
+// turns the page and which the menu ignores. In the menu a release on an item chooses it, as its
+// letter does. When the game offers a choice (intro.mouseTargets: Male or Female, the gypsy's A or
+// B) a release on it is its key. While pressed, the item under the pointer is lit and the light
+// follows a drag; a release elsewhere chooses nothing.
 const MENU_KEYS = 'JCTUAR'; // the items, top to bottom: text rows 17-22
 const MENU_TOP = 17 * 8;
+const SKIP = { key: 0x1b, rects: [] };
 
 /** The screen pixel under the pointer (the canvas is scaled to the page). */
 function screenPoint(e) {
   const r = screen.getBoundingClientRect();
   return { x: ((e.clientX - r.left) * 320) / r.width, y: ((e.clientY - r.top) * 200) / r.height };
 }
+
+const onScreen = ({ x, y }) => x >= 0 && x < 320 && y >= 0 && y < 200;
 
 /** The menu item at a screen point, or -1: anywhere along its row inside the menu's frame. */
 function menuItemAt({ x, y }) {
@@ -47,58 +52,79 @@ function targetAt({ x, y }) {
   return intro.mouseTargets.find((t) => t.rects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) ?? null;
 }
 
+/** What a release at this point would do, as { key, rects } (the rects to light), or null. */
+function choiceAt(p) {
+  if (!p || !onScreen(p)) return null;
+  switch (intro.mouseMode) {
+    case 'skip': return SKIP;
+    case 'menu': {
+      const item = menuItemAt(p);
+      return item < 0 ? null : { key: MENU_KEYS.charCodeAt(item), rects: [{ x: 8, y: MENU_TOP + item * 8, w: 304, h: 8 }] };
+    }
+    case 'targets': return targetAt(p);
+  }
+  return null;
+}
+
 let pointer = null; // the last screen point the pointer was at, null once it left the screen
+let held = null; // the pointer pressed on the screen (its id), until it is released
 // A touch screen has no hover: then all the choices are outlined, and the one touched lights up.
 let touch = matchMedia('(hover: none)').matches; // the last pointer used was a finger or a pen
-let pressed = null; // the choice being touched, lit until a moment after the finger lifts
 
 screen.addEventListener('pointerdown', (e) => {
   touch = e.pointerType !== 'mouse';
   if (e.button !== 0 || !intro.mouseMode) return;
-  if (intro.mouseMode === 'targets') {
-    const target = targetAt(screenPoint(e));
-    if (!target) return;
-    e.preventDefault();
-    pressed = target;
-    setTimeout(() => {
-      if (pressed === target) pressed = null;
-      platform.present();
-    }, 300);
-    platform.present();
-    platform.pushKey({ key: target.key, shifted: 0 });
-  } else if (intro.mouseMode === 'skip') {
-    e.preventDefault();
-    platform.pushKey({ key: 0x1b, shifted: 0 });
-  } else if (intro.mouseMode === 'menu') {
-    const item = menuItemAt(screenPoint(e));
-    if (item < 0) return;
-    e.preventDefault();
-    platform.pushKey({ key: MENU_KEYS.charCodeAt(item), shifted: 0 });
-  }
+  e.preventDefault();
+  held = e.pointerId;
+  screen.setPointerCapture(e.pointerId); // the release counts even off the screen (as a cancel)
+  pointer = screenPoint(e);
+  platform.present();
 });
 
-// A hand over what a click would do.
+screen.addEventListener('pointerup', (e) => {
+  if (held !== e.pointerId) return;
+  held = null;
+  const choice = choiceAt(screenPoint(e));
+  if (touch) pointer = null; // a lifted finger points nowhere
+  if (choice) platform.pushKey({ key: choice.key, shifted: 0 });
+  platform.present();
+});
+
+screen.addEventListener('pointercancel', () => {
+  held = null;
+  pointer = null;
+  platform?.present();
+});
+
+// A hand over what a release would do; the light follows the pointer.
 screen.addEventListener('pointermove', (e) => {
   touch = e.pointerType !== 'mouse';
   pointer = screenPoint(e);
-  const clickable = intro.mouseMode === 'skip' || (intro.mouseMode === 'menu' && menuItemAt(pointer) >= 0) || targetAt(pointer) !== null;
-  screen.style.cursor = clickable ? 'pointer' : '';
-  platform?.present(); // the highlight follows at once
+  screen.style.cursor = choiceAt(pointer) ? 'pointer' : '';
+  platform?.present();
 });
 screen.addEventListener('pointerleave', () => {
+  if (held !== null) return; // still pressed: it may come back
   pointer = null;
   platform?.present();
 });
 
 /**
- * What the page draws over each frame: with a mouse, the choice under the pointer lit; on a touch
- * screen every choice outlined and the one touched lit.
+ * What the page draws over each frame. While pressed, the item under the pointer lit. Otherwise,
+ * when the game offers a choice: with a mouse the one under the pointer lit (hover), on a touch
+ * screen every one outlined.
  */
 function highlight() {
-  if (intro.mouseMode !== 'targets') return [];
-  if (touch) return intro.mouseTargets.flatMap((t) => t.rects.map((r) => ({ ...r, lit: t === pressed })));
-  const target = pointer && targetAt(pointer);
-  return target ? target.rects.map((r) => ({ ...r, lit: true })) : [];
+  // While a touch can choose something it stays the game's (no scrolling the page with it), so a
+  // finger can be dragged across the choices; otherwise the page scrolls as usual.
+  const touchAction = intro.mouseMode ? 'none' : 'manipulation';
+  if (screen.style.touchAction !== touchAction) screen.style.touchAction = touchAction;
+  const under = choiceAt(pointer);
+  const lit = (rects) => rects.map((r) => ({ ...r, lit: true }));
+  if (intro.mouseMode === 'targets' && touch)
+    return intro.mouseTargets.flatMap((t) => t.rects.map((r) => ({ ...r, lit: held !== null && t === under })));
+  if (held !== null || intro.mouseMode === 'targets') return under ? lit(under.rects) : [];
+  return [];
 }
 
 // A touch screen's keyboard. It opens only for a text field, and (on most phones) only on a tap:

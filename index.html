@@ -8,7 +8,8 @@
   </head>
   <body>
     <main>
-      <canvas id="screen" width="320" height="200"></canvas>
+      <!-- Takes the room the rest of the page leaves; the screen is the largest 4:3 that fits in it. -->
+      <div id="stage"><canvas id="screen" width="320" height="200"></canvas></div>
       <!-- Where a touch screen's keyboard types: the game reads what changes in it (main.js). -->
       <input id="type-here" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Type here" />
       <p id="type-hint" hidden>Tap the screen to type</p>

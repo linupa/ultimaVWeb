@@ -4,24 +4,44 @@
   --fg: #ccc;
   --accent: #55f;
 }
+/* The page always fits the window, so it never scrolls: the screen shrinks instead. */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
 body {
   margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
+  height: 100dvh;
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, sans-serif;
 }
 main {
-  display: grid;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 1rem;
-  justify-items: center;
   padding: 1rem;
 }
-/* The game draws at 320 x 200; the browser scales it up without smoothing. */
+main > * {
+  flex: none;
+  margin: 0;
+}
+#stage {
+  flex: 1 1 0;
+  min-height: 0;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  container-type: size;
+}
+/* The game draws at 320 x 200 on a 4:3 monitor; the browser scales it up without smoothing. */
 #screen {
-  width: min(960px, 100vw - 2rem);
+  display: block;
+  width: min(960px, 100cqw, 100cqh * 4 / 3);
   aspect-ratio: 4 / 3;
   image-rendering: pixelated;
   background: #000;
