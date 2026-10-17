@@ -41,9 +41,21 @@ buttons, a click or tap counts when it is released: while pressed, the item unde
 lights up (in the menu, the menu's own cursor moves to it) and follows a drag, and releasing
 elsewhere chooses nothing.
 
+In Britannia and in towns, pressing the map moves the party one step that way, as an arrow key
+does - at once, without waiting for the release. A press off to a diagonal goes the nearest of the
+four ways. Held for half a second or more, the party keeps walking until you let go, towards
+wherever the pointer or finger is, so a drag steers it - except from the squares right next to the
+party, which give one step.
+
+The four squares right next to the party (not diagonally) also have the commands that ask for a
+direction. A quick click or tap on one steps there; held for half a second, it opens a ring of the
+commands around the square: Talk, Look, Attack, Get, Open, Search, Push and Jimmy. Slide onto one
+and let go, or let go and then click one, to do it towards the square. A click outside the ring or
+any key closes it.
+
 On a phone or tablet, the screen keyboard opens when the game asks you to type (your name, a
-conversation, an amount); if it doesn't, tap the screen. The rest of the game still needs a
-keyboard, since its commands are keys.
+conversation, an amount); if it doesn't, tap the screen. Walking and the directional commands work
+by touching the map (above); the rest of the game still needs a keyboard.
 
 - **Arrow keys** move; the letters **A**-**Z** are the commands (Attack, Board, Cast, Enter, Fire,
   Get, Hole up, Ignite torch, Jimmy, Klimb, Look, Mix, New order, Open, Push, Quit & save, Ready,
@@ -87,7 +99,8 @@ Add these to the address:
 
 - Only the EGA look. The C++ port can also look like the CGA and Hercules versions; this one
   can't.
-- No touch controls: phones and tablets need a keyboard.
+- Few touch controls: phones and tablets can walk and use the directional commands, but need a
+  keyboard for the rest.
 
 ## Development
 

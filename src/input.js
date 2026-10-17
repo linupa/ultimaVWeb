@@ -21,6 +21,12 @@ export class Input {
     // touch screen's keyboard then (onTyping).
     this.typing = null;
     this.onTyping = null;
+    // While the game waits for a command in Britannia or a town (the party at the middle of the
+    // view): the page turns a press on the map into an arrow key (main.js).
+    this.commandPrompt = false;
+    // While the game asks for a direction (askDirection): the page answers it for a command chosen
+    // from its ring of directional commands (main.js).
+    this.directionPrompt = false;
   }
 
   drawCursor(frame) {

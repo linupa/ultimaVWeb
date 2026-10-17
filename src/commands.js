@@ -120,10 +120,13 @@ export function enterTownFromMap(prompt) {
  */
 export async function askDirection() {
   let key;
+  input.directionPrompt = true;
   do {
     key = (await getCommandKey()) & 0xff;
-    if (platform.quitRequested()) return null;
+    if (platform.quitRequested()) break;
   } while (!(key === 0x20 || (key >= 1 && key <= 4)));
+  input.directionPrompt = false;
+  if (platform.quitRequested()) return null;
   switch (key) {
     case 1: tw.printText(strings.get(S.West_A2B6)); return { dx: -1, dy: 0 };
     case 2: tw.printText(strings.get(S.East_A2BC)); return { dx: 1, dy: 0 };

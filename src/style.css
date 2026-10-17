@@ -53,9 +53,12 @@ main > * {
   cursor: pointer;
 }
 
-/* Taps act at once (no double-tap zoom). */
+/* Taps act at once (no double-tap zoom); a long touch selects nothing and opens no callout. */
 #screen {
   touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 /* Invisible, but focusable, so a touch screen shows its keyboard. 16px keeps iOS from zooming. */
 #type-here {
@@ -124,4 +127,41 @@ main > * {
   text-align: center;
   font-size: 0.85rem;
   opacity: 0.7;
+}
+
+/* The ring of directional commands: over the whole window, so a click outside the buttons closes
+   it. The buttons look like the game's frame; the one under the pointer is inverted, as the menu
+   shows its cursor. */
+#ring {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  touch-action: none;
+}
+#ring[hidden] {
+  display: none;
+}
+#ring .ring-square {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  pointer-events: none;
+}
+#ring button {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #0000aa;
+  color: #fff;
+  font: bold calc(var(--size) * 0.24) system-ui, sans-serif;
+  cursor: pointer;
+}
+#ring button:hover,
+#ring button:active,
+#ring button.lit {
+  background: #fff;
+  color: #0000aa;
 }
