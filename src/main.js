@@ -105,8 +105,9 @@ function walkKeyAt({ x, y }) {
 let pointer = null; // the last screen point the pointer was at, null once it left the screen
 let held = null; // the pointer pressed on the screen (its id), until it is released
 let heldSince = 0; // when it was pressed (performance.now())
-// A press on a square next to the party: { sq, timer } - the timer opens the ring.
-let pressedNeighbour = null;
+// A press on the party's square or one next to it (not diagonally): { sq, timer } - the timer
+// opens a ring.
+let pressedSquare = null;
 // A touch screen has no hover: then all the choices are outlined, and the one touched lights up.
 let touch = matchMedia('(hover: none)').matches; // the last pointer used was a finger or a pen
 
@@ -114,15 +115,21 @@ screen.addEventListener('pointerdown', (e) => {
   touch = e.pointerType !== 'mouse';
   if (e.button !== 0) return;
   if (!intro.mouseMode) {
-    if (!input.commandPrompt) return;
     const sq = squareAt(screenPoint(e));
-    if (neighbourKey(sq)) {
+    // The game asks which way (a command typed, or one that asks later): a square next to the party.
+    if (input.directionPrompt && !pendingDirection && neighbourKey(sq)) {
+      e.preventDefault();
+      platform.pushKey({ key: neighbourKey(sq), shifted: 0 });
+      return;
+    }
+    if (!input.commandPrompt) return;
+    if (neighbourKey(sq) || (sq && sq.col === 0 && sq.row === 0)) {
       e.preventDefault();
       const id = e.pointerId;
       held = id;
       screen.setPointerCapture(id);
       pointer = screenPoint(e);
-      pressedNeighbour = { sq, timer: setTimeout(() => ringHeld(id), RING_HOLD) };
+      pressedSquare = { sq, timer: setTimeout(() => ringHeld(id), RING_HOLD) };
       return;
     }
     const key = walkKeyAt(screenPoint(e));
@@ -146,12 +153,13 @@ screen.addEventListener('pointerdown', (e) => {
 screen.addEventListener('pointerup', (e) => {
   if (held !== e.pointerId) return;
   held = null;
-  if (pressedNeighbour) {
-    const { sq: at, timer } = pressedNeighbour;
+  if (pressedSquare) {
+    const { sq: at, timer } = pressedSquare;
     clearTimeout(timer);
-    pressedNeighbour = null;
+    pressedSquare = null;
     const sq = squareAt(screenPoint(e));
-    if (sq && sq.col === at.col && sq.row === at.row && input.commandPrompt) platform.pushKey({ key: neighbourKey(at), shifted: 0 });
+    // A click on a square next to the party is a step there; on the party's own, nothing.
+    if (sq && sq.col === at.col && sq.row === at.row && input.commandPrompt && neighbourKey(at)) platform.pushKey({ key: neighbourKey(at), shifted: 0 });
     return;
   }
   const choice = choiceAt(screenPoint(e));
@@ -162,8 +170,8 @@ screen.addEventListener('pointerup', (e) => {
 
 screen.addEventListener('pointercancel', () => {
   held = null;
-  if (pressedNeighbour) clearTimeout(pressedNeighbour.timer);
-  pressedNeighbour = null;
+  if (pressedSquare) clearTimeout(pressedSquare.timer);
+  pressedSquare = null;
   pointer = null;
   platform?.present();
 });
@@ -180,24 +188,33 @@ screen.addEventListener('contextmenu', (e) => {
   if (held !== null) e.preventDefault();
 });
 
-// The directional commands: a press held on a square next to the party (not diagonally) opens a
-// ring of them around it. The press may go on to a button and be released there, or be released
-// and a button clicked. Choosing one sends its letter, and then - when the game asks which way - the
-// arrow towards the square. A command that doesn't ask (Jimmy without keys, say) drops the arrow,
-// so it can't become a step. A click outside the ring, a key or the game moving on closes it.
-const RING = [
+// The rings of commands. A press held on a square next to the party (not diagonally) opens a ring
+// of the directional commands around it; held on the party's own square, two rings of the others
+// (the commoner inside). The press may go on to a button and be released there, or be released
+// and a button clicked. Choosing one sends its letter; for a directional one then - when the game
+// asks which way - the arrow towards the square. A command that doesn't ask (Jimmy without keys,
+// say) drops the arrow, so it can't become a step. A click outside the rings, a key or the game
+// moving on closes them.
+const DIRECTIONAL = [[
   ['Talk', 0x54], ['Look', 0x4c], ['Attack', 0x41], ['Get', 0x47],
   ['Open', 0x4f], ['Search', 0x53], ['Push', 0x50], ['Jimmy', 0x4a],
-];
+]];
+const OTHERS = [[
+  ['Enter', 0x45], ['Board', 0x42], ['X-it', 0x58], ['Klimb', 0x4b],
+  ['Cast', 0x43], ['Use', 0x55], ['Ready', 0x52], ['Ztats', 0x5a],
+], [
+  ['Hole up', 0x48], ['Ignite', 0x49], ['Mix', 0x4d], ['New order', 0x4e],
+  ['View', 0x56], ['Yell', 0x59], ['Pass', 0x20], ['Save', 0x51],
+]];
 const ring = document.getElementById('ring');
 let ringKey = 0; // the arrow towards the square the ring is around, while it is open
 let pendingDirection = null; // { key, left }: the arrow to answer the next direction prompt with
 let ringPress = null; // the press that opened the ring (its id), until it is released
 
-/** RING_HOLD ms into a press on a square next to the party: the ring, if it is still there. */
+/** RING_HOLD ms into a press on the party's square or one next to it: its ring, if it is still there. */
 function ringHeld(id) {
-  const at = pressedNeighbour?.sq;
-  pressedNeighbour = null;
+  const at = pressedSquare?.sq;
+  pressedSquare = null;
   if (held !== id || !at || !input.commandPrompt) return;
   const sq = pointer && squareAt(pointer);
   if (!sq || sq.col !== at.col || sq.row !== at.row) return; // dragged off it: nothing
@@ -207,13 +224,13 @@ function ringHeld(id) {
   openRing(at);
 }
 
-/** Does the command of a ring button: its letter now, the arrow when the game asks. */
+/** Does the command of a ring button: its letter now, the arrow (if any) when the game asks. */
 function chooseRing(key) {
   const dir = ringKey;
   closeRing();
   if (!input.commandPrompt) return;
   platform.pushKey({ key, shifted: 0 });
-  pendingDirection = { key: dir, left: false };
+  if (dir) pendingDirection = { key: dir, left: false };
 }
 
 function openRing(sq) {
@@ -224,19 +241,21 @@ function openRing(sq) {
   const size = Math.min(64, Math.max(44, w * 1.1)); // a button, big enough for a finger
   const radius = Math.max(h / 2 + size / 2 + 4, size * 1.35); // around the square; the buttons don't overlap
   ringKey = neighbourKey(sq);
+  const rings = ringKey ? DIRECTIONAL : OTHERS;
   ring.replaceChildren();
   ring.style.setProperty('--size', `${size}px`);
   const mark = document.createElement('div');
   mark.className = 'ring-square';
   Object.assign(mark.style, { left: `${cx - w / 2}px`, top: `${cy - h / 2}px`, width: `${w}px`, height: `${h}px` });
   ring.append(mark);
-  RING.forEach(([label, key], i) => {
-    const a = (i / RING.length) * 2 * Math.PI; // clockwise from the top
+  rings.forEach((items, n) => items.forEach(([label, key], i) => {
+    // Clockwise from the top; an outer ring a button further out, between the inner one's.
+    const a = ((i + n / 2) / items.length) * 2 * Math.PI, rr = radius + n * (size + 4);
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = label;
-    b.style.left = `${cx + radius * Math.sin(a) - size / 2}px`;
-    b.style.top = `${cy - radius * Math.cos(a) - size / 2}px`;
+    b.style.left = `${cx + rr * Math.sin(a) - size / 2}px`;
+    b.style.top = `${cy - rr * Math.cos(a) - size / 2}px`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       chooseRing(key);
@@ -248,7 +267,7 @@ function openRing(sq) {
     b.addEventListener('pointerenter', () => b.classList.add('lit'));
     b.addEventListener('pointerleave', () => b.classList.remove('lit'));
     ring.append(b);
-  });
+  }));
   ring.hidden = false;
 }
 
@@ -287,7 +306,7 @@ setInterval(() => {
 
 // Walking on while the press is held.
 setInterval(() => {
-  if (held === null || pressedNeighbour || intro.mouseMode || !pointer || !input.commandPrompt || platform.keyWaiting()) return;
+  if (held === null || pressedSquare || intro.mouseMode || !pointer || !input.commandPrompt || platform.keyWaiting()) return;
   if (performance.now() - heldSince < WALK_HOLD) return;
   const key = walkKeyAt(pointer);
   if (key) platform.pushKey({ key, shifted: 0 });
@@ -322,7 +341,9 @@ function highlight() {
 
 // A touch screen's keyboard. It opens only for a text field, and (on most phones) only on a tap:
 // while the game waits for typed text (input.typing) a tap on the screen focuses the hidden field
-// #type-here, and many Android phones open it at once. What changes in the field is sent to the
+// #type-here, and many Android phones open it at once. In the game a tap on the text window opens
+// it - for the commands too - and it stays open until a tap on the map or the status window. What
+// changes in the field is sent to the
 // game as keys - the letters added, Backspace for each one removed - since touch keyboards often
 // build up a word before it is final; Return comes as a key. The field starts with two spaces, so
 // Backspace has something to remove even when nothing has been typed.
@@ -336,22 +357,36 @@ function resetTypeHere() {
   typeHere.setSelectionRange(BLANK.length, BLANK.length);
 }
 
+let inGame = false; // the game's screen is up: the map, the status and the text windows
+let keyboardWanted = false; // in the game, the player opened the keyboard on the text window
+
+/** The game screen's window at a screen point: 'map', 'status' (with the food and gold) or 'text'. */
+function windowAt({ x, y }) {
+  if (x < 184) return 'map';
+  return y < 84 ? 'status' : 'text';
+}
+
 function openKeyboard() {
-  if (!input.typing) return;
   typeHere.inputMode = input.typing === 'number' ? 'numeric' : 'text';
   resetTypeHere();
+  if (document.activeElement === typeHere) typeHere.blur(); // a focused field may have hidden its keyboard
   typeHere.focus({ preventScroll: true });
 }
 
 input.onTyping = (kind) => {
   if (kind && touch) openKeyboard();
-  else if (!kind) typeHere.blur();
+  else if (!kind && !keyboardWanted) typeHere.blur();
+  typeHint.textContent = inGame ? 'Tap the text window to type' : 'Tap the screen to type';
   typeHint.hidden = !(kind && touch && document.activeElement !== typeHere);
 };
 typeHere.addEventListener('focus', () => { typeHint.hidden = true; });
 typeHere.addEventListener('blur', () => { typeHint.hidden = !(input.typing && touch); });
-screen.addEventListener('click', () => { // a tap: the user action a keyboard may open on
-  if (input.typing) openKeyboard();
+screen.addEventListener('click', (e) => { // a tap: the user action a keyboard may open on
+  if (inGame && touch) {
+    keyboardWanted = windowAt(screenPoint(e)) === 'text';
+    if (keyboardWanted) openKeyboard();
+    else typeHere.blur();
+  } else if (input.typing) openKeyboard();
 });
 
 typeHere.addEventListener('input', (e) => {
@@ -537,7 +572,9 @@ async function run() {
     return;
   }
   platform.present();
+  inGame = true;
   await gameRun();
+  inGame = false;
   platform.present();
 }
 

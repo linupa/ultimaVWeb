@@ -54,9 +54,15 @@ commands around the square: Talk, Look, Attack, Get, Open, Search, Push and Jimm
 and let go, or let go and then click one, to do it towards the square. A click outside the ring or
 any key closes it.
 
+Held for half a second on the party itself, the press opens two rings of the other commands: Enter,
+Board, X-it, Klimb, Cast, Use, Ready and Ztats inside; Hole up, Ignite torch, Mix, New order, View,
+Yell, Pass and Save (Quit & save) outside. Whenever the game asks for a direction - for a command
+typed on the keyboard, say - a click or tap on a square next to the party answers it.
+
 On a phone or tablet, the screen keyboard opens when the game asks you to type (your name, a
-conversation, an amount); if it doesn't, tap the screen. Walking and the directional commands work
-by touching the map (above); the rest of the game still needs a keyboard.
+conversation, an amount); if it doesn't, tap the screen - in the game, the text window (bottom
+right). A tap on the text window opens it any time, for typing commands too; a tap on the map or
+the status window hides it. Walking and the commands work by touching the map (above).
 
 - **Arrow keys** move; the letters **A**-**Z** are the commands (Attack, Board, Cast, Enter, Fire,
   Get, Hole up, Ignite torch, Jimmy, Klimb, Look, Mix, New order, Open, Push, Quit & save, Ready,
@@ -100,8 +106,8 @@ Add these to the address:
 
 - Only the EGA look. The C++ port can also look like the CGA and Hercules versions; this one
   can't.
-- Few touch controls: phones and tablets can walk and use the directional commands, but need a
-  keyboard for the rest.
+- Some questions can't be answered by touch yet (choosing a party member, yes or no): on a phone,
+  open the screen keyboard from the text window.
 
 ## Development
 
