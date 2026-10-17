@@ -27,6 +27,7 @@ describe.skipIf(!GAME_DIR || !KEYS)('a scripted game', () => {
     const files = loadGameFolder();
     if (process.env.U5_SAVE) files.add('SAVED.GAM', readFileSync(process.env.U5_SAVE));
     if (process.env.U5_EXTRA) files.add(process.env.U5_EXTRA, readFileSync(process.env.U5_EXTRA)); // e.g. PARTY.SAV
+    intro.portMenu = false; // the original's menu, as the C++ port has it
     const p = new ScriptPlatform();
     setPlatform(p);
     startUp(files);

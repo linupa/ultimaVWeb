@@ -30,7 +30,8 @@ Your files stay in your browser. Nothing is uploaded anywhere.
    browser. The browser remembers the files, so this is needed only once.
 2. The game starts as the original does: the Origin logo, Lord British's signature, the title and
    the menu. Choose **Create New Character** to start a new game, or **Journey Onward** to carry
-   on with the saved game in your folder.
+   on with the saved game in your folder. The original's **Transfer from Ultima IV** is now
+   **Load/Save/Transfer Game**, for the saved games (below).
 
 You need a keyboard; the game is played with keys, as on DOS. Before the game the mouse works
 too: a click skips the title sequence and the demo, turns the introduction's pages and closes the
@@ -69,24 +70,24 @@ by touching the map (above); the rest of the game still needs a keyboard.
 ### Saving
 
 **Q** saves the game, as in the original. The save is kept in your browser, and it is what
-**Journey Onward** loads next time. Under the screen:
+**Journey Onward** loads next time. In the menu, **Load/Save/Transfer Game** (or the key **T** or
+**L**) opens a second menu:
 
-- **Download saved game** gives you `SAVED.GAM` and `SAVED.OOL`. They work in the original game
+- **Download Saved Game** gives you `SAVED.GAM` and `SAVED.OOL`. They work in the original game
   too.
-- **Load a saved game** takes a `SAVED.GAM` (and `SAVED.OOL`) from your computer - from the
-  original game, for example.
-- **Start over from the folder's save** forgets the saves made in this browser.
+- **Load a Saved Game** asks for a `SAVED.GAM` (and `SAVED.OOL`) from your computer - from the
+  original game, for example, or one downloaded earlier, even if it was renamed `SAVED (1).GAM`.
+  **Journey Onward** then plays it.
+- **Transfer from Ultima IV** - below.
+- **Return** (or Escape) goes back to the menu.
 
 Clearing the site's data in your browser also deletes your saves, so download the ones you want
 to keep.
 
-**Hide save options** (above the buttons) tucks them away; the page remembers that in your
-browser.
-
 ### Transfer from Ultima IV
 
-To bring your hero over from Ultima IV, include Ultima IV's `PARTY.SAV` in the folder you choose,
-or add it later with **Load a saved game**. Then pick **Transfer from Ultima IV** in the menu.
+To bring your hero over from Ultima IV, pick **Transfer from Ultima IV** in the
+**Load/Save/Transfer Game** menu and choose Ultima IV's `PARTY.SAV`.
 
 ### Shortcuts
 
@@ -144,9 +145,9 @@ the C++ port's `strings.h`.
 
 With [ultimaVSDL](https://github.com/linupa/ultimaVSDL) built in `../ultima5_sdl` and the game in
 `../ultima5`, the scripts in `tools/reference/` play the same key sequences in both ports, with the
-same random seeds, and compare the screen, the text and the saved game. 45 scenarios cover the
-title and menu, towns, conversations and shops, fights, magic, dungeons, shrines, death and the
-ending:
+same random seeds, and compare the screen, the text and the saved game (with the original's menu:
+Transfer from Ultima IV in place of Load/Save/Transfer Game). 45 scenarios cover the title and
+menu, towns, conversations and shops, fights, magic, dungeons, shrines, death and the ending:
 
 ```sh
 python3 tools/reference/variants.py ../ultima5   # saved games the scenarios start from

@@ -82,53 +82,6 @@ main > * {
   display: none;
 }
 
-#saves {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  align-items: center;
-  max-width: 960px;
-}
-#saves[hidden] {
-  display: none;
-}
-#save-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  align-items: center;
-}
-#save-controls[hidden] {
-  display: none;
-}
-/* The toggle is quieter than the controls it hides. */
-#saves #toggle-saves {
-  width: 100%;
-  border: none;
-  padding: 0.25rem;
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-#saves #toggle-saves:hover {
-  opacity: 1;
-}
-#saves button {
-  background: none;
-  color: var(--fg);
-  font: inherit;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--accent);
-  cursor: pointer;
-}
-.hint {
-  width: 100%;
-  text-align: center;
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
 /* The ring of directional commands: over the whole window, so a click outside the buttons closes
    it. The buttons look like the game's frame; the one under the pointer is inverted, as the menu
    shows its cursor. */

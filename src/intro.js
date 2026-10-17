@@ -50,6 +50,9 @@ export function readPages(count, b, words, bytes, last) {
 }
 
 const PATH_SIZE = 0x1060;
+// The port's menu item in place of Transfer from Ultima IV (the same length): saved games in and
+// out of the browser, and the transfer (filesMenu).
+const FILES_ITEM = 'Load/Save/Transfer Game';
 
 /** The screen rectangles, one per line, of the story text from character `from` up to `to`. */
 function textRects(glyphs, from, to) {
@@ -123,8 +126,16 @@ export class Intro {
     // screen pixels. The page highlights the one under the pointer and sends its key on a click.
     this.mouseTargets = [];
     // In mode 'menu', the item a mouse is over or a pressed pointer is on (0-5), or -1: the menu
-    // moves its cursor there, as the arrow keys do.
+    // moves its cursor there, as the arrow keys do. menuKeys: the items' letters, top to bottom.
     this.menuPointed = -1;
+    this.menuKeys = '';
+    // What the page does for the Load/Save/Transfer Game menu (main.js): download() the saved
+    // game; load() and party() let the player pick a saved game or Ultima IV's PARTY.SAV, and
+    // resolve to whether they did.
+    this.fileActions = null;
+    // False: the original's menu - Transfer from Ultima IV in place of Load/Save/Transfer Game -
+    // for the checks against the C++ port (test/play.test.js).
+    this.portMenu = true;
     // Set to an array, drawStoryText records each character it draws: { i, x, y, w }.
     this.storyGlyphs = null;
 
@@ -362,10 +373,75 @@ export class Intro {
   drawMainMenu(selected) {
     this.drawMenuItem(strings.get(S.Journey_Onward_310C), 0x0c, 0, selected);
     this.drawMenuItem(strings.get(S.Create_New_Character_311B), 9, 1, selected);
-    this.drawMenuItem(strings.get(S.Transfer_from_Ultima_IV_3130), 8, 2, selected);
+    this.drawMenuItem(this.portMenu ? FILES_ITEM : strings.get(S.Transfer_from_Ultima_IV_3130), 8, 2, selected);
     this.drawMenuItem(strings.get(S.Ultima_V_Introduction_3148), 9, 3, selected);
     this.drawMenuItem(strings.get(S.Acknowledgements_315E), 0x0b, 4, selected);
     this.drawMenuItem(strings.get(S.Return_to_the_View_316F), 0x0a, 5, selected);
+  }
+
+  /** Clears the menu's items, inside its frame (rows 16-23). */
+  clearMenuItems() {
+    tw.defineTextWindow(0x17, 0x26, 0x10, 1, 0);
+    tw.selectTextWindow(0);
+    tw.putChar(0xff);
+    tw.defineTextWindow(0x18, 0x27, 0, 0, 0);
+  }
+
+  /**
+   * The port's Load/Save/Transfer Game menu, in place of the main menu's items: the saved game
+   * downloaded, a saved game loaded from a file, Ultima IV's PARTY.SAV picked for the transfer.
+   * Returns 0x54 (T) to go on to the transfer, 0x4c (L) after a saved game is loaded, else 0.
+   */
+  async filesMenu() {
+    const items = ['Download Saved Game', 'Load a Saved Game', strings.get(S.Transfer_from_Ultima_IV_3130), 'Return'];
+    const keys = 'DLTR';
+    const draw = (selected) => items.forEach((text, row) => this.drawMenuItem(text, (0x26 - text.length) >> 1, row, selected));
+    let selected = 0;
+    let pointed = -1;
+    this.clearMenuItems();
+    draw(selected);
+    this.menuKeys = keys;
+    this.mouseMode = 'menu';
+    try {
+      for (;;) {
+        tw.setCursor(0x0f, 0x17);
+        let k = 0;
+        while (k === 0) {
+          k = toUpper((await input.waitKeyCursor()) & 0xff);
+          if (platform.quitRequested()) return 0;
+          if (k === 0 && this.menuPointed !== pointed && (pointed = this.menuPointed) >= 0 && pointed !== selected) {
+            selected = pointed;
+            draw(selected);
+            tw.setCursor(0x0f, 0x17);
+          }
+          if (k === 0) await waitRevealStrips();
+        }
+        let choice = 0;
+        if (k === 1 || k === 3) selected = (selected + items.length - 1) % items.length;
+        else if (k === 2 || k === 4) selected = (selected + 1) % items.length;
+        else if (k === 0x0d || k === 0x20) choice = keys[selected];
+        else if (k === 0x1b) choice = 'R';
+        else if (keys.includes(String.fromCharCode(k))) choice = String.fromCharCode(k);
+        if (choice) selected = keys.indexOf(choice);
+        draw(selected);
+        const actions = this.fileActions;
+        switch (choice) {
+          case 'D':
+            actions?.download();
+            break;
+          case 'L':
+            if (await actions?.load()) return 0x4c;
+            break;
+          case 'T':
+            if (await actions?.party()) return 0x54;
+            break;
+          case 'R':
+            return 0;
+        }
+      }
+    } finally {
+      this.mouseMode = null;
+    }
   }
 
   /**
@@ -927,6 +1003,7 @@ export class Intro {
       let pointed = -1; // menuPointed when the cursor last followed it: the keys may move it on
       this.printCentered(strings.get(S.Copyright_1988_Lord_31C1));
       this.drawMainMenu(0);
+      this.menuKeys = keys;
       this.mouseMode = 'menu';
       do {
         tw.setCursor(0x0f, 0x0f);
@@ -958,8 +1035,11 @@ export class Intro {
             if (++selected > 5) selected = 0;
             this.drawMainMenu(selected);
             break;
+          case 0x4c: // L: Load/Save/Transfer Game, too
+            if (!this.portMenu) break;
+            // falls through
           case 0x4a: case 0x43: case 0x54: case 0x55: case 0x41: case 0x52:
-            selected = keys.indexOf(String.fromCharCode(k));
+            selected = keys.indexOf(String.fromCharCode(k === 0x4c ? 0x54 : k));
             this.drawMainMenu(selected);
             choice = k;
             break;
@@ -981,7 +1061,8 @@ export class Intro {
         case 0x52: // R
           await this.attractDemo();
           break;
-        case 0x54: // T
+        case 0x54: case 0x4c: // T: Load/Save/Transfer Game (the port's); its Transfer from Ultima IV
+          if (this.portMenu && (await this.filesMenu()) !== 0x54) break;
           tw.putChar(0xff);
           await this.transferFromUltima4();
           await this.backToTitle();

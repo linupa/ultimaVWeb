@@ -11,7 +11,7 @@ import { platform, setPlatform } from './platform/platform.js';
 import { files } from './files.js';
 import { input } from './input.js';
 import { KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_UP } from './platform/keys.js';
-import { clearWritten, loadFiles, loadWritten, saveFiles, saveWritten } from './store.js';
+import { loadFiles, loadWritten, saveFiles, saveWritten } from './store.js';
 
 const screen = document.getElementById('screen');
 const setup = document.getElementById('setup');
@@ -29,8 +29,7 @@ const gameFiles = new GameFiles();
 // B) a release on it is its key. While pressed, the item under the pointer is lit and the light
 // follows a drag - in the menu its own cursor moves there instead, and follows a mouse even
 // unpressed; a release elsewhere chooses nothing.
-const MENU_KEYS = 'JCTUAR'; // the items, top to bottom: text rows 17-22
-const MENU_TOP = 17 * 8;
+const MENU_TOP = 17 * 8; // the menu's items (intro.menuKeys, top to bottom) from text row 17
 const SKIP = { key: 0x1b, rects: [] };
 
 /** The screen pixel under the pointer (the canvas is scaled to the page). */
@@ -45,7 +44,7 @@ const onScreen = ({ x, y }) => x >= 0 && x < 320 && y >= 0 && y < 200;
 function menuItemAt({ x, y }) {
   if (x < 8 || x >= 312 || y < MENU_TOP) return -1;
   const item = Math.floor((y - MENU_TOP) / 8);
-  return item < MENU_KEYS.length ? item : -1;
+  return item < intro.menuKeys.length ? item : -1;
 }
 
 /** The choice at a screen point, or null. */
@@ -61,7 +60,7 @@ function choiceAt(p) {
     case 'skip': return SKIP;
     case 'menu': {
       const item = menuItemAt(p);
-      return item < 0 ? null : { key: MENU_KEYS.charCodeAt(item), rects: [] }; // the menu's cursor shows it
+      return item < 0 ? null : { key: intro.menuKeys.charCodeAt(item), rects: [] }; // the menu's cursor shows it
     }
     case 'targets': return targetAt(p);
   }
@@ -431,33 +430,8 @@ zip.addEventListener('change', async () => {
   await useGameFiles();
 });
 
-// ---- saved games (step 7): what the game writes is kept in IndexedDB, and can be taken out or put in.
-
-const savesPanel = document.getElementById('saves');
-const saveControls = document.getElementById('save-controls');
-const toggleSaves = document.getElementById('toggle-saves');
-
-// The save options can be hidden; the choice is remembered in this browser (if it lets the page).
-function showSaveControls(show) {
-  saveControls.hidden = !show;
-  toggleSaves.textContent = show ? 'Hide save options' : 'Show save options';
-  toggleSaves.setAttribute('aria-expanded', String(show));
-}
-try {
-  showSaveControls(localStorage.getItem('saveControlsHidden') !== '1');
-} catch {
-  showSaveControls(true);
-}
-toggleSaves.addEventListener('click', () => {
-  const show = saveControls.hidden;
-  showSaveControls(show);
-  try {
-    localStorage.setItem('saveControlsHidden', show ? '0' : '1');
-  } catch {
-    // not remembered: private window or storage blocked
-  }
-  toggleSaves.blur(); // the keys go back to the game
-});
+// ---- saved games (step 7): what the game writes is kept in IndexedDB. The menu's Load/Save/Transfer
+// Game (intro.filesMenu) takes it out of the browser or puts a saved game in.
 
 async function restoreWritten() {
   try {
@@ -478,25 +452,66 @@ function download(name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-document.getElementById('download').addEventListener('click', () => {
-  download('SAVED.GAM');
-  download('SAVED.OOL');
-});
+/**
+ * The files the player picks ([] if they cancel). A browser opens its file chooser only just after
+ * a key or click; the menu's choice usually is, but if it came too late the chooser opens at the
+ * next one, with a hint to give it.
+ */
+const TYPE_HINT = typeHint.textContent;
 
-document.getElementById('upload').addEventListener('change', async (e) => {
-  for (const file of e.target.files) {
-    const name = file.name.toUpperCase();
-    if (name !== 'SAVED.GAM' && name !== 'SAVED.OOL' && name !== 'PARTY.SAV') continue; // PARTY.SAV: Ultima IV's, for the transfer
-    await saveWritten(name, new Uint8Array(await file.arrayBuffer())).catch(() => {});
-  }
-  location.reload(); // the game starts again from the save loaded
-});
+function pickFiles(accept, multiple) {
+  return new Promise((resolve) => {
+    const picker = document.createElement('input');
+    Object.assign(picker, { type: 'file', accept, multiple, hidden: true });
+    document.body.append(picker);
+    const open = () => {
+      typeHint.hidden = true;
+      picker.click();
+    };
+    const done = (picked) => {
+      typeHint.hidden = !(input.typing && touch);
+      typeHint.textContent = TYPE_HINT;
+      removeEventListener('pointerup', open, true);
+      removeEventListener('keydown', open, true);
+      picker.remove();
+      resolve(picked);
+    };
+    picker.addEventListener('change', () => done([...picker.files]));
+    picker.addEventListener('cancel', () => done([]));
+    if (navigator.userActivation?.isActive === false) {
+      typeHint.textContent = 'Click or press a key to choose the file';
+      typeHint.hidden = false;
+      addEventListener('pointerup', open, { capture: true, once: true });
+      addEventListener('keydown', open, { capture: true, once: true });
+    } else open();
+  });
+}
 
-document.getElementById('reset').addEventListener('click', async () => {
-  if (!confirm('Forget the saves made in this browser and start from the folder\'s SAVED.GAM?')) return;
-  await clearWritten().catch(() => {});
-  location.reload();
-});
+intro.fileActions = {
+  download() {
+    download('SAVED.GAM');
+    download('SAVED.OOL');
+  },
+  // A saved game from the computer: SAVED.GAM and SAVED.OOL, by their extensions (a download may
+  // have been renamed "SAVED (1).GAM").
+  async load() {
+    let loaded = false;
+    for (const file of await pickFiles('.gam,.ool,.GAM,.OOL', true)) {
+      const ext = file.name.toUpperCase().split('.').pop();
+      if (ext !== 'GAM' && ext !== 'OOL') continue;
+      files.put(`SAVED.${ext}`, new Uint8Array(await file.arrayBuffer()));
+      loaded = true;
+    }
+    return loaded;
+  },
+  // Ultima IV's PARTY.SAV, whatever it is called now.
+  async party() {
+    const [file] = await pickFiles('.sav,.SAV', false);
+    if (!file) return false;
+    files.put('PARTY.SAV', new Uint8Array(await file.arrayBuffer()));
+    return true;
+  },
+};
 
 // ?j goes straight into the saved game (Journey Onward, like holding J at start-up); ?m starts at
 // the menu, skipping the title sequence.
@@ -504,7 +519,6 @@ const params = new URLSearchParams(location.search);
 
 async function run() {
   await restoreWritten();
-  savesPanel.hidden = false;
   try {
     startUp(gameFiles);
     if (params.has('j')) {
