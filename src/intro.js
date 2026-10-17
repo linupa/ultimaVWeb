@@ -16,7 +16,7 @@ import { randomBetween, setRandomSeed, timeSeed } from './misc.js';
 import { party } from './party.js';
 import {
   allocBackPage, copyBackRect, copyPage, copyPageRect, dosFreeMem, dosFreeMem2, drawFontGlyph, drawPictureFrame,
-  loadBitmap, loadPicture, pictureFrameSize, revealStrips, showTitlePicture, waitRevealStrips,
+  loadBitmap, loadPicture, revealStrips, showTitlePicture, waitRevealStrips,
 } from './picture.js';
 import { platform } from './platform/platform.js';
 import { sound } from './sound.js';
@@ -122,6 +122,9 @@ export class Intro {
     // In mode 'targets', the choices a click can make: [{ key, rects: [{ x, y, w, h }] }] in
     // screen pixels. The page highlights the one under the pointer and sends its key on a click.
     this.mouseTargets = [];
+    // In mode 'menu', the item a mouse is over or a pressed pointer is on (0-5), or -1: the menu
+    // moves its cursor there, as the arrow keys do.
+    this.menuPointed = -1;
     // Set to an array, drawStoryText records each character it draws: { i, x, y, w }.
     this.storyGlyphs = null;
 
@@ -921,6 +924,7 @@ export class Intro {
       tw.defineTextWindow(9, 0x27, 1, 0x18, 1);
       tw.defineTextWindow(0x17, 0x27, 0x0b, 0x18, 2);
       let selected = 0, choice;
+      let pointed = -1; // menuPointed when the cursor last followed it: the keys may move it on
       this.printCentered(strings.get(S.Copyright_1988_Lord_31C1));
       this.drawMainMenu(0);
       this.mouseMode = 'menu';
@@ -933,6 +937,12 @@ export class Intro {
         let k = 0;
         for (let i = 0; i < 200 && k === 0; i++) {
           k = toUpper((await input.waitKeyCursor()) & 0xff);
+          if (k === 0 && this.menuPointed !== pointed && (pointed = this.menuPointed) >= 0 && pointed !== selected) {
+            selected = pointed;
+            this.drawMainMenu(selected);
+            tw.setCursor(0x0f, 0x17);
+            i = 0; // pointing is not idling: no demo yet
+          }
           if (k === 0) await waitRevealStrips();
           if (platform.quitRequested()) return 0;
         }
@@ -1284,15 +1294,11 @@ export class Intro {
     this.storyGlyphs = [];
     this.drawStoryText(textBuffer.data, font);
     copyPage(0, 1);
-    // For the mouse: answer A is the "A) ..." passage and the left card, B the rest and the right.
+    // For the mouse: answer A is the "A) ..." passage, B the rest.
     const question = textBuffer.cString(0), atA = question.indexOf('A)'), atB = question.indexOf('B)');
-    const card = (v, dx) => {
-      const size = pictureFrameSize(picture, v + 2);
-      return size ? [{ x: (this.virtueCardX[v & 7] + dx) & ~7, y: this.virtueCardY[v & 7], w: size.w, h: size.h }] : [];
-    };
     this.mouseTargets = [
-      { key: 0x41, rects: [...(atA >= 0 && atB > atA ? textRects(this.storyGlyphs, atA, atB) : []), ...card(left, 0)] },
-      { key: 0x42, rects: [...(atB >= 0 ? textRects(this.storyGlyphs, atB, question.length) : []), ...card(right, 0xb8)] },
+      { key: 0x41, rects: atA >= 0 && atB > atA ? textRects(this.storyGlyphs, atA, atB) : [] },
+      { key: 0x42, rects: atB >= 0 ? textRects(this.storyGlyphs, atB, question.length) : [] },
     ];
     this.storyGlyphs = null;
     this.mouseMode = 'targets';

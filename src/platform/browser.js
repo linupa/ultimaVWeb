@@ -15,7 +15,7 @@ export class BrowserPlatform extends Platform {
   /**
    * @param {HTMLCanvasElement} canvas  @param {EventTarget} keySource (usually window)
    * @param {() => {x, y, w, h, lit}[]} highlight  screen rectangles to highlight over each frame
-   *   (the game's own picture is left as it is); lit ones more strongly
+   *   (the game's own picture is left as it is): lit ones inverted, the others outlined
    */
   constructor(canvas, keySource = window, highlight = () => []) {
     super();
@@ -119,16 +119,19 @@ export class BrowserPlatform extends Platform {
   present() {
     toRGBA(video.fb, this.image.data);
     this.ctx.putImageData(this.image, 0, 0);
-    // EGA yellow: a lit choice see-through with an outline, the others (on a touch screen,
-    // without hover) only a faint outline.
+    // A lit choice in inverted colours, as the menu shows its cursor; the others (on a touch
+    // screen, without hover) with a faint EGA yellow outline.
     this.ctx.lineWidth = 1;
+    this.ctx.fillStyle = '#fff';
+    this.ctx.strokeStyle = 'rgba(255, 255, 85, 0.6)';
     for (const r of this.highlight()) {
       if (r.lit) {
-        this.ctx.fillStyle = 'rgba(255, 255, 85, 0.25)';
+        this.ctx.globalCompositeOperation = 'difference'; // white minus each pixel
         this.ctx.fillRect(r.x, r.y, r.w, r.h);
+        this.ctx.globalCompositeOperation = 'source-over';
+      } else {
+        this.ctx.strokeRect(r.x - 0.5, r.y - 0.5, r.w + 1, r.h + 1);
       }
-      this.ctx.strokeStyle = r.lit ? 'rgb(255, 255, 85)' : 'rgba(255, 255, 85, 0.6)';
-      this.ctx.strokeRect(r.x - 0.5, r.y - 0.5, r.w + 1, r.h + 1);
     }
     this.lastPresent = performance.now();
   }

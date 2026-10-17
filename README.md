@@ -35,10 +35,11 @@ Your files stay in your browser. Nothing is uploaded anywhere.
 You need a keyboard; the game is played with keys, as on DOS. Before the game the mouse works
 too: a click skips the title sequence and the demo, turns the introduction's pages and closes the
 acknowledgements, and a click on a menu item chooses it. In character creation, Male or Female
-and the gypsy's answers can be clicked: the choice under the pointer is highlighted, the text of
-an answer together with its virtue's card. On a touch screen every choice is outlined. As with
+and the gypsy's answers can be clicked: the choice under the pointer is shown in inverted colours,
+like the menu's cursor, which follows the mouse. On a touch screen every choice is outlined. As with
 buttons, a click or tap counts when it is released: while pressed, the item under the pointer
-lights up and the light follows a drag, and releasing elsewhere chooses nothing.
+lights up (in the menu, the menu's own cursor moves to it) and follows a drag, and releasing
+elsewhere chooses nothing.
 
 On a phone or tablet, the screen keyboard opens when the game asks you to type (your name, a
 conversation, an amount); if it doesn't, tap the screen. The rest of the game still needs a

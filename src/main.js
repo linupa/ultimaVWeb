@@ -26,7 +26,8 @@ const gameFiles = new GameFiles();
 // turns the page and which the menu ignores. In the menu a release on an item chooses it, as its
 // letter does. When the game offers a choice (intro.mouseTargets: Male or Female, the gypsy's A or
 // B) a release on it is its key. While pressed, the item under the pointer is lit and the light
-// follows a drag; a release elsewhere chooses nothing.
+// follows a drag - in the menu its own cursor moves there instead, and follows a mouse even
+// unpressed; a release elsewhere chooses nothing.
 const MENU_KEYS = 'JCTUAR'; // the items, top to bottom: text rows 17-22
 const MENU_TOP = 17 * 8;
 const SKIP = { key: 0x1b, rects: [] };
@@ -59,7 +60,7 @@ function choiceAt(p) {
     case 'skip': return SKIP;
     case 'menu': {
       const item = menuItemAt(p);
-      return item < 0 ? null : { key: MENU_KEYS.charCodeAt(item), rects: [{ x: 8, y: MENU_TOP + item * 8, w: 304, h: 8 }] };
+      return item < 0 ? null : { key: MENU_KEYS.charCodeAt(item), rects: [] }; // the menu's cursor shows it
     }
     case 'targets': return targetAt(p);
   }
@@ -115,6 +116,8 @@ screen.addEventListener('pointerleave', () => {
  * screen every one outlined.
  */
 function highlight() {
+  // In the menu its own cursor follows a mouse, or a pressed finger.
+  intro.menuPointed = intro.mouseMode === 'menu' && pointer && (held !== null || !touch) ? menuItemAt(pointer) : -1;
   // While a touch can choose something it stays the game's (no scrolling the page with it), so a
   // finger can be dragged across the choices; otherwise the page scrolls as usual.
   const touchAction = intro.mouseMode ? 'none' : 'manipulation';
