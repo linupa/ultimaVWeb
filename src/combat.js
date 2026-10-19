@@ -707,7 +707,9 @@ export class Combat {
             tw.printText(strings.get(S.Zzzzz_6DC8));
             continue;
           }
+          input.anyCommandPrompt = true;
           key = (await getCommandKey()) & 0xff;
+          input.anyCommandPrompt = false;
           if (gameQuit()) return;
           again = 0;
           switch (key) {

@@ -761,9 +761,9 @@ export class Town {
         if (map.isOutdoors()) return;
         let redraw = true;
         do {
-          input.commandPrompt = true;
+          input.commandPrompt = input.anyCommandPrompt = true;
           key = (await this.townReadKey(redraw)) & 0xff;
-          input.commandPrompt = false;
+          input.commandPrompt = input.anyCommandPrompt = false;
           redraw = false;
           if (gameQuit()) return;
           if (key > 0x1f) {

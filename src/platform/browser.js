@@ -16,10 +16,15 @@ export class BrowserPlatform extends Platform {
    * @param {HTMLCanvasElement} canvas  @param {EventTarget} keySource (usually window)
    * @param {() => {x, y, w, h, lit}[]} highlight  screen rectangles to highlight over each frame
    *   (the game's own picture is left as it is): lit ones inverted, the others outlined
+   * @param {() => ?{w, h, parts: {x, y, w, h, dx, dy, dw, dh}[]}} layout  null: the screen as it
+   *   is; else the canvas's size and where each part of the screen goes on it (scaled)
    */
-  constructor(canvas, keySource = window, highlight = () => []) {
+  constructor(canvas, keySource = window, highlight = () => [], layout = () => null) {
     super();
+    this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.layout = layout;
+    this.frame = null; // the screen drawn off the page, for a layout
     this.image = this.ctx.createImageData(SCREEN_W, SCREEN_H);
     this.queue = [];
     this.highlight = highlight;
@@ -117,21 +122,35 @@ export class BrowserPlatform extends Platform {
   }
 
   present() {
+    const layout = this.layout();
+    if (layout && !this.frame) {
+      this.frame = document.createElement('canvas');
+      Object.assign(this.frame, { width: SCREEN_W, height: SCREEN_H });
+    }
+    const ctx = layout ? this.frame.getContext('2d') : this.ctx;
+    const { w, h } = layout ?? { w: SCREEN_W, h: SCREEN_H };
+    if (this.canvas.width !== w || this.canvas.height !== h) Object.assign(this.canvas, { width: w, height: h });
     toRGBA(video.fb, this.image.data);
-    this.ctx.putImageData(this.image, 0, 0);
+    ctx.putImageData(this.image, 0, 0);
     // A lit choice in inverted colours, as the menu shows its cursor; the others (on a touch
     // screen, without hover) with a faint EGA yellow outline.
-    this.ctx.lineWidth = 1;
-    this.ctx.fillStyle = '#fff';
-    this.ctx.strokeStyle = 'rgba(255, 255, 85, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(255, 255, 85, 0.6)';
     for (const r of this.highlight()) {
       if (r.lit) {
-        this.ctx.globalCompositeOperation = 'difference'; // white minus each pixel
-        this.ctx.fillRect(r.x, r.y, r.w, r.h);
-        this.ctx.globalCompositeOperation = 'source-over';
+        ctx.globalCompositeOperation = 'difference'; // white minus each pixel
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.globalCompositeOperation = 'source-over';
       } else {
-        this.ctx.strokeRect(r.x - 0.5, r.y - 0.5, r.w + 1, r.h + 1);
+        ctx.strokeRect(r.x - 0.5, r.y - 0.5, r.w + 1, r.h + 1);
       }
+    }
+    if (layout) {
+      this.ctx.imageSmoothingEnabled = false;
+      this.ctx.fillStyle = '#000';
+      this.ctx.fillRect(0, 0, w, h);
+      for (const p of layout.parts) this.ctx.drawImage(this.frame, p.x, p.y, p.w, p.h, p.dx, p.dy, p.dw, p.dh);
     }
     this.lastPresent = performance.now();
   }

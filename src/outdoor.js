@@ -404,9 +404,9 @@ export class Outdoor {
       } else {
         if (await checkMoongate()) await visitShrine();
         if (!map.isOutdoors()) return;
-        input.commandPrompt = true;
+        input.commandPrompt = input.anyCommandPrompt = true;
         const key = (await this.outdoorReadKey()) & 0xff;
-        input.commandPrompt = false;
+        input.commandPrompt = input.anyCommandPrompt = false;
         if (gameQuit()) return;
         if (key > 0x1f) {
           result = key < 0x30 || key > 0x39 ? await dispatchCommand(key) : cmdSetActivePlayer(key);

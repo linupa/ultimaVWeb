@@ -27,6 +27,15 @@ export class Input {
     // While the game asks for a direction (askDirection): the page answers it for a command chosen
     // from its ring of directional commands (main.js).
     this.directionPrompt = false;
+    // While the game waits for a command anywhere (the dungeon and combat too): not a question the
+    // page may cancel with a click on the map (main.js).
+    this.anyCommandPrompt = false;
+    this.keyWaitAt = -Infinity; // when the game last looked for a key (performance.now())
+  }
+
+  /** Is the game waiting for a key now (it looked for one in the last few ticks)? */
+  waitingForKey() {
+    return performance.now() - this.keyWaitAt < 150;
   }
 
   drawCursor(frame) {
@@ -59,6 +68,7 @@ export class Input {
     const frame = this.cursorFrame++;
     this.drawCursor(frame);
     const key = this.pollKey();
+    this.keyWaitAt = key === 0 ? performance.now() : -Infinity;
     if (((this.cursorFrame << 16) >> 16) >= ((this.cursor[1] << 16) >> 16)) this.cursorFrame = 0;
     if (key === 0) await this.delayTicks(1);
     else this.eraseCursor();

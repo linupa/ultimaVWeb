@@ -16,6 +16,10 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, sans-serif;
+  /* A long touch (a held square, the ring's buttons) selects nothing and opens no callout. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 main {
   box-sizing: border-box;
@@ -38,11 +42,13 @@ main > * {
   place-items: center;
   container-type: size;
 }
-/* The game draws at 320 x 200 on a 4:3 monitor; the browser scales it up without smoothing. */
+/* The game draws at 320 x 200 on a 4:3 monitor; the browser scales it up without smoothing. In the
+   game on an upright window the canvas holds the screen's windows rearranged (main.js). */
 #screen {
   display: block;
-  width: min(960px, 100cqw, 100cqh * 4 / 3);
-  aspect-ratio: 4 / 3;
+  /* --ratio: the layout's (main.js), 4:3 for the screen as it is */
+  width: min(960px, 100cqw, 100cqh * var(--ratio, 4 / 3));
+  aspect-ratio: var(--ratio, 4 / 3);
   image-rendering: pixelated;
   background: #000;
 }
@@ -53,15 +59,15 @@ main > * {
   cursor: pointer;
 }
 
-/* Taps act at once (no double-tap zoom); a long touch selects nothing and opens no callout. */
+/* Taps act at once (no double-tap zoom). */
 #screen {
   touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
 }
-/* Invisible, but focusable, so a touch screen shows its keyboard. 16px keeps iOS from zooming. */
+/* Invisible, but focusable, so a touch screen shows its keyboard. 16px keeps iOS from zooming.
+   Selectable, or iOS won't type into it. */
 #type-here {
+  user-select: text;
+  -webkit-user-select: text;
   position: fixed;
   left: 0;
   bottom: 0;

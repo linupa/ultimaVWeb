@@ -32,10 +32,69 @@ const gameFiles = new GameFiles();
 const MENU_TOP = 17 * 8; // the menu's items (intro.menuKeys, top to bottom) from text row 17
 const SKIP = { key: 0x1b, rects: [] };
 
-/** The screen pixel under the pointer (the canvas is scaled to the page). */
+// The screen's layout on the page. On a window taller than wide (a phone held upright), in the
+// game, its windows are moved around: the map across the top, and under it the status window on
+// the left and the text window on the right. The map leaves out the white line along its right
+// edge (the windows' own, broken where they meet) and the windows the map's, so each keeps one
+// border on that side; the blank line under the screen goes. The text window shows only as many
+// lines as the status window is high: those around its cursor. The canvas is then that picture
+// (SPLIT.w x SPLIT.h, 4 pixels to a screen pixel in the windows below); otherwise (FULL) it is
+// the screen. The screen's pixels stay 1.2 times taller than wide.
+const PIXEL_ASPECT = 1.2; // 320 x 200 shown 4:3
+const FULL = { w: 320, h: 200, parts: [{ x: 0, y: 0, w: 320, h: 200, dx: 0, dy: 0, dw: 320, dh: 200 }] };
+const SPLIT = (() => {
+  const map = { x: 0, y: 0, w: 191, h: 192 };
+  const status = { x: 185, y: 0, w: 135, h: 88 };
+  const text = { x: 185, y: 88, w: 135, h: status.h }; // y: as currentLayout() scrolls it
+  const w = (status.w + text.w) * 4, mapH = Math.round((map.h * w) / map.w);
+  return {
+    w,
+    h: mapH + status.h * 4,
+    parts: [
+      { ...map, dx: 0, dy: 0, dw: w, dh: mapH },
+      { ...status, dx: 0, dy: mapH, dw: status.w * 4, dh: status.h * 4 },
+      { ...text, dx: status.w * 4, dy: mapH, dw: text.w * 4, dh: text.h * 4 },
+    ],
+  };
+})();
+const upright = matchMedia('(orientation: portrait)');
+let layout = FULL;
+
+/** The layout for now (the platform's, each frame): null for FULL. Fits the page to a change. */
+function currentLayout() {
+  const want = inGame && upright.matches ? SPLIT : FULL;
+  if (want !== layout) {
+    layout = want;
+    screen.style.setProperty('--ratio', String(layout.w / (layout.h * PIXEL_ASPECT)));
+    closeRing();
+  }
+  if (layout === FULL) return null;
+  // The text window's lines that fit, down to its cursor's (once it has gone that far).
+  const win = tw.windows[WIN_MESSAGE], part = SPLIT.parts[2], rows = part.h / 8;
+  const top = Math.max(win.top, Math.min(win.top + win.curRow, win.bottom) - rows + 1);
+  part.y = Math.min(top, win.bottom - rows + 1) * 8;
+  return layout;
+}
+upright.addEventListener('change', () => platform?.present());
+
+/** The screen pixel under the pointer (the canvas is scaled to the page), or (-1, -1) on no window. */
 function screenPoint(e) {
   const r = screen.getBoundingClientRect();
-  return { x: ((e.clientX - r.left) * 320) / r.width, y: ((e.clientY - r.top) * 200) / r.height };
+  const x = ((e.clientX - r.left) * layout.w) / r.width, y = ((e.clientY - r.top) * layout.h) / r.height;
+  // Beside the canvas (a drag) and level with the map (the screen in FULL), on the map's own terms.
+  const inside = (p) => x >= p.dx && x < p.dx + p.dw && y >= p.dy && y < p.dy + p.dh;
+  const top = layout.parts[0];
+  const p = layout.parts.find(inside) ?? (y < top.dy + top.dh ? top : null);
+  if (!p) return { x: -1, y: -1 };
+  return { x: p.x + ((x - p.dx) * p.w) / p.dw, y: p.y + ((y - p.dy) * p.h) / p.dh };
+}
+
+/** Where a rectangle of the screen is on the page, as a DOMRect-like { left, top, width, height }. */
+function pageRect(x, y, w, h) {
+  const r = screen.getBoundingClientRect();
+  const p = layout.parts.find((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h);
+  const sx = ((r.width / layout.w) * p.dw) / p.w, sy = ((r.height / layout.h) * p.dh) / p.h;
+  return { left: r.left + (p.dx * r.width) / layout.w + (x - p.x) * sx, top: r.top + (p.dy * r.height) / layout.h + (y - p.y) * sy, width: w * sx, height: h * sy };
 }
 
 const onScreen = ({ x, y }) => x >= 0 && x < 320 && y >= 0 && y < 200;
@@ -122,6 +181,14 @@ screen.addEventListener('pointerdown', (e) => {
       platform.pushKey({ key: neighbourKey(sq), shifted: 0 });
       return;
     }
+    // Any other question (a yes or no, which member, a name...): a press on the map cancels it,
+    // as Escape does - Space for a direction, which Escape doesn't answer.
+    const p = screenPoint(e);
+    if (inGame && !input.anyCommandPrompt && !pendingDirection && p.x >= 0 && windowAt(p) === 'map' && input.waitingForKey() && !platform.keyWaiting()) {
+      e.preventDefault();
+      platform.pushKey({ key: input.directionPrompt ? 0x20 : 0x1b, shifted: 0 });
+      return;
+    }
     if (!input.commandPrompt) return;
     if (neighbourKey(sq) || (sq && sq.col === 0 && sq.row === 0)) {
       e.preventDefault();
@@ -189,19 +256,19 @@ screen.addEventListener('contextmenu', (e) => {
 });
 
 // The rings of commands. A press held on a square next to the party (not diagonally) opens a ring
-// of the directional commands around it; held on the party's own square, two rings of the others
-// (the commoner inside). The press may go on to a button and be released there, or be released
+// of the commands that ask a direction around it (Klimb too: it asks one off a ladder, and on one
+// drops the arrow); held on the party's own square, two rings of the others (the commoner inside). The press may go on to a button and be released there, or be released
 // and a button clicked. Choosing one sends its letter; for a directional one then - when the game
 // asks which way - the arrow towards the square. A command that doesn't ask (Jimmy without keys,
 // say) drops the arrow, so it can't become a step. A click outside the rings, a key or the game
 // moving on closes them.
 const DIRECTIONAL = [[
   ['Talk', 0x54], ['Look', 0x4c], ['Attack', 0x41], ['Get', 0x47],
-  ['Open', 0x4f], ['Search', 0x53], ['Push', 0x50], ['Jimmy', 0x4a],
+  ['Open', 0x4f], ['Search', 0x53], ['Push', 0x50], ['Jimmy', 0x4a], ['Klimb', 0x4b],
 ]];
 const OTHERS = [[
-  ['Enter', 0x45], ['Board', 0x42], ['X-it', 0x58], ['Klimb', 0x4b],
-  ['Cast', 0x43], ['Use', 0x55], ['Ready', 0x52], ['Ztats', 0x5a],
+  ['Enter', 0x45], ['Board', 0x42], ['X-it', 0x58], ['Cast', 0x43],
+  ['Use', 0x55], ['Ready', 0x52], ['Ztats', 0x5a],
 ], [
   ['Hole up', 0x48], ['Ignite', 0x49], ['Mix', 0x4d], ['New order', 0x4e],
   ['View', 0x56], ['Yell', 0x59], ['Pass', 0x20], ['Save', 0x51],
@@ -234,10 +301,9 @@ function chooseRing(key) {
 }
 
 function openRing(sq) {
-  // The screen is shown 4:3, so its pixels are taller than wide.
-  const r = screen.getBoundingClientRect(), sx = r.width / 320, sy = r.height / 200;
-  const w = 16 * sx, h = 16 * sy; // the square
-  const cx = r.left + (VIEW.x + (sq.col + 5) * 16 + 8) * sx, cy = r.top + (VIEW.y + (sq.row + 5) * 16 + 8) * sy;
+  const r = pageRect(VIEW.x + (sq.col + 5) * 16, VIEW.y + (sq.row + 5) * 16, 16, 16);
+  const w = r.width, h = r.height; // the square (taller than wide, as the screen's pixels)
+  const cx = r.left + w / 2, cy = r.top + h / 2;
   const size = Math.min(64, Math.max(44, w * 1.1)); // a button, big enough for a finger
   const radius = Math.max(h / 2 + size / 2 + 4, size * 1.35); // around the square; the buttons don't overlap
   ringKey = neighbourKey(sq);
@@ -290,7 +356,10 @@ addEventListener('keydown', (e) => {
   closeRing();
   if (e.key === 'Escape') e.stopImmediatePropagation(); // only closes it
 }, true);
-addEventListener('resize', closeRing);
+addEventListener('resize', () => {
+  closeRing();
+  platform?.present();
+});
 
 setInterval(() => {
   if (!ring.hidden && !input.commandPrompt) closeRing();
@@ -403,7 +472,7 @@ typeHere.addEventListener('input', (e) => {
 });
 
 async function start() {
-  setPlatform(new BrowserPlatform(screen, window, highlight));
+  setPlatform(new BrowserPlatform(screen, window, highlight, currentLayout));
   try {
     await loadFiles(gameFiles);
   } catch {

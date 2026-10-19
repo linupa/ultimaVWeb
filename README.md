@@ -50,14 +50,21 @@ party, which give one step.
 
 The four squares right next to the party (not diagonally) also have the commands that ask for a
 direction. A quick click or tap on one steps there; held for half a second, it opens a ring of the
-commands around the square: Talk, Look, Attack, Get, Open, Search, Push and Jimmy. Slide onto one
+commands around the square: Talk, Look, Attack, Get, Open, Search, Push, Jimmy
+and Klimb. Slide onto one
 and let go, or let go and then click one, to do it towards the square. A click outside the ring or
 any key closes it.
 
 Held for half a second on the party itself, the press opens two rings of the other commands: Enter,
-Board, X-it, Klimb, Cast, Use, Ready and Ztats inside; Hole up, Ignite torch, Mix, New order, View,
+Board, X-it, Cast, Use, Ready and Ztats inside; Hole up, Ignite torch, Mix, New order, View,
 Yell, Pass and Save (Quit & save) outside. Whenever the game asks for a direction - for a command
-typed on the keyboard, say - a click or tap on a square next to the party answers it.
+typed on the keyboard, say - a click or tap on a square next to the party answers it. When the game asks anything else (which item, yes
+or no...), a click or tap on the map cancels it, as Escape does (a direction question gets Pass).
+
+On a screen taller than wide (a phone held upright), the game's windows are rearranged to fit it:
+the map across the top, the status window below it on the left and the text window on the right.
+The title, the menu and character creation keep the original screen. Turn the phone sideways for
+the original layout in the game too.
 
 On a phone or tablet, the screen keyboard opens when the game asks you to type (your name, a
 conversation, an amount); if it doesn't, tap the screen - in the game, the text window (bottom

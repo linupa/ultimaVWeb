@@ -620,7 +620,9 @@ export class Dungeon {
         moves = 1;
         passTime(1);
       }
+      input.anyCommandPrompt = true;
       const key = await this.dungeonReadKey();
+      input.anyCommandPrompt = false;
       if (gameQuit()) break;
       const turn = await this.dungeonHandleKey(key);
       if (map.onTileMap() || gameQuit()) break;
